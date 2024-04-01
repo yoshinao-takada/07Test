@@ -1,0 +1,16 @@
+@startuml
+start
+repeat
+    :Prohibit Tx;
+    :Start 1-shot delay;
+    :blocking read();
+    :Put bytes into rxrb;
+    if (rxrb overflows?) then (yes)
+        :goto error processing;
+    endif
+    if (event is available?) then (yes)
+        :Send the event\nto Data Link layer;
+    endif
+repeat while (forever)
+end
+@enduml

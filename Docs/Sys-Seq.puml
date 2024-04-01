@@ -1,0 +1,8 @@
+@startuml
+participant Systick as ST order 0
+participant Comm as COMM order 10
+participant Dispatchers as DPS order 20
+participant "DataLink\nLayer" as DLL order 30
+participant "Network\nLayer" as NWL order 40
+
+@enduml

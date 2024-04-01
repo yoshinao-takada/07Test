@@ -1,0 +1,18 @@
+@startuml
+[*] -> Empty
+Empty -d-> Remaining : StartTx\n[bytes remain]
+Empty -> Empty : StartTx\n[no byte remains]
+state Empty: Do/\n\tAppend StartTx param to buffer queue.
+state Empty: \tif (StartTx) {
+state Empty: \t\twrite(remaining bytes);
+state Empty : \t}
+state Empty : Exit/\n\tStart 1-shot timer to continue Tx.
+Remaining -> Remaining : ContinueTx\n[bytes remain]
+Remaining -> Empty : ContinueTx\n[no byte remains]
+state Remaining : Do/\n\tif (ContinuTx) {
+state Remaining : \t\twrite(remaining bytes);
+state Remaining : \t}
+state Remaining : \tif (bytes remain) {
+state Remaining : \t\tRestart 1-shot timer to continue Tx.
+state Remaining : \t}
+@enduml

@@ -1,0 +1,5 @@
+@startuml
+participant SYSTEM as SYS order 0
+participant "RX\nBuffer" as RxBuf order 10
+participant "Tx\nBuffer" as TxBuf order 20
+@enduml
