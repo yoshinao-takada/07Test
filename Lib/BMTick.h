@@ -1,6 +1,9 @@
 #if !defined(BMTICK_H)
 #define BMTICK_H
 #include "BMBase.h"
+// minimum time tick period in milliseconds
+#define BMTICK_MIN_PERIOD   10
+
 #pragma region DISPATCHERS
 typedef struct {
     uint32_t count, init;

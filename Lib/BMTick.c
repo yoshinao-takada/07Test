@@ -1,5 +1,6 @@
 #include "BMTick.h"
 #include <signal.h>
+#include <sys/param.h>
 
 #pragma region TIME_STRUCT_CONVERSION
 /*!
@@ -169,7 +170,7 @@ BMStatus_t BMSystick_Init(BMEvQ_pt evq, uint16_t period)
         }
 
         // start timer
-        BMITimerval_FromMillisec(&itnew, period);
+        BMITimerval_FromMillisec(&itnew, MIN(period, BMTICK_MIN_PERIOD));
         if (setitimer(ITIMER_REAL, &itnew, &itold))
         {
             status = BMSTATUS_INVALID;
