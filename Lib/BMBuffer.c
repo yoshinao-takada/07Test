@@ -74,21 +74,17 @@ BMBuffer_pt BMBufferPool_Get(BMBufferPool_pt bpl)
     return p;
 }
 
-void BMBufferPool_Return(BMBufferPool_pt bpl, BMBuffer_cpt buffer)
+BMStatus_t BMBufferPool_Return(BMBufferPool_pt bpl, BMBuffer_cpt buffer)
 {
-    uint16_t flag = 1;
+    BMStatus_t result = BMSTATUS_INVALID;
     pthread_spin_lock(&bpl->lock);
-    for (int i = 0; i < bpl->size; i++)
+    uint16_t ptr_offset = buffer - (bpl->buffers);
+    if (ptr_offset < bpl->size)
     {
-        if (buffer == (bpl->buffers + i))
-        {
-            bpl->used &= ~flag;
-        }
-        else
-        {
-            flag <<= 1;
-        }
+        bpl->used &= ~(1 << ptr_offset);
+        result = BMSTATUS_SUCCESS;
     }
     pthread_spin_unlock(&bpl->lock);
+    return result;
 }
 #pragma endregion BMBufferPool_Impl

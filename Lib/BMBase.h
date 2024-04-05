@@ -16,6 +16,7 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <stddef.h>
+#include <assert.h>
 
 // Error log
 #define BMERR_LOG(_file,_fn,_ln,...) \
@@ -25,9 +26,15 @@
 #define BMERR_LOGBREAK(_file,_fn,_ln,...) \
     BMERR_LOG(_file,_fn,_ln,__VA_ARGS__); break
 
+#define BMERR_LOGBREAKEX(...) \
+        BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
+
 #define BMEND_FUNC(_file,_fn,_ln,_st) \
     fprintf(stdout, "Status = %d @ %s,%s,%d\n", _st,_file,_fn,_ln)
 
+#define BMEND_FUNCEX(_st) \
+    BMEND_FUNC(__FILE__, __FUNCTION__, __LINE__, _st)
+    
 // memory bourndary alignment suitable to architecture
 #define ARCH_WORD_SIZE      8
 #define ARCH_MASK           (ARCH_WORD_SIZE - 1)
@@ -107,6 +114,10 @@ typedef struct {
 BMEv_pt _varname ## _ev[_size]; \
 BMEvQ_t _varname = { BMQBase(_size), _varname ## _ev }
 
+#define BMEvQ_SDECL(_varname, _size) \
+static BMEv_pt _varname ## _ev[_size]; \
+static BMEvQ_t _varname = { BMQBase(_size), _varname ## _ev }
+
 #define BMEvQ_INIT(_varname) \
 pthread_spin_init(&(_varname.qbase.lock), PTHREAD_PROCESS_PRIVATE)
 
@@ -166,14 +177,12 @@ BMStatus_t BMEvPool_Return(BMEvPool_pt evpool, BMEv_pt ev);
 \brief declare an instance of BMEvPool_t as a local variable.
 */
 #define BMEvPool_DECL(_varname, _size) \
-assert(_size <= sizeof(uint16_t)); \
 BMEv_t _varname ## _ev[_size]; \
-BMEv_t _varname = { _varname ## _ev, _size, 0, 0 }
+BMEvPool_t _varname = { _varname ## _ev, _size, 0, 0 }
 
 #define BMEvPool_SDECL(_varname, _size) \
-assert(_size <= sizeof(uint16_t)); \
 static BMEv_t _varname ## _ev[_size]; \
-static BMEv_t _varname = { _varname ## _ev, _size, 0, 0 }
+static BMEvPool_t _varname = { _varname ## _ev, _size, 0, 0 }
 
 #define BMEvPool_INIT(_varname) { \
     for (uint16_t i = 0; i < _varname.count; i++) \

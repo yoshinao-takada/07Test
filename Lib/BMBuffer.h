@@ -138,6 +138,6 @@ BMBuffer_pt BMBufferPool_Get(BMBufferPool_pt bpl);
 /*!
 \brief return a buffer.
 */
-void BMBufferPool_Return(BMBufferPool_pt bpl, BMBuffer_cpt buffer);
+BMStatus_t BMBufferPool_Return(BMBufferPool_pt bpl, BMBuffer_cpt buffer);
 #pragma endregion DECLARE_BMBufferPool_t
 #endif /* BMBUFFER_H */

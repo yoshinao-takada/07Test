@@ -110,7 +110,7 @@ BMEv_pt BMEvPool_Get(BMEvPool_pt evpool)
 BMStatus_t BMEvPool_Return(BMEvPool_pt evpool, BMEv_pt ev)
 {
     pthread_spin_lock(&evpool->lock);
-    uint16_t offset = (ev - evpool->ev)/sizeof(BMEv_t);
+    uint16_t offset = ev - (evpool->ev);
     uint16_t flag = (1 << offset);
     if ((flag & evpool->used) == 0)
     {
@@ -118,6 +118,7 @@ BMStatus_t BMEvPool_Return(BMEvPool_pt evpool, BMEv_pt ev)
     }
     evpool->used &= ~flag;
     evpool->ev[offset].id.ptr = NULL;
+    evpool->ev[offset].listeners = 0;
     pthread_spin_unlock(&evpool->lock);
     return BMSTATUS_SUCCESS;
 }
