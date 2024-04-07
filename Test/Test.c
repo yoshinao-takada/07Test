@@ -5,6 +5,7 @@
 int TickUT();
 int EvPoolUT();
 int BufferUT();
+int CommUT();
 
 int HasSth(int argc, const char* argv[], const char* sth)
 {
@@ -16,6 +17,7 @@ int HasSth(int argc, const char* argv[], const char* sth)
 #define DO_TICKUT(_argc, _argv) HasSth(_argc, _argv, "tick")
 #define DO_SVR(_argc, _argv) HasSth(_argc, _argv, "svr")
 #define DO_CLI(_argc, _argv) HasSth(_argc, _argv, "cli")
+#define DO_COMM(_argc, _argv) HasSth(_argc, _argv, "comm")
 
 
 int main(int argc, const char* argv[])
@@ -31,20 +33,23 @@ int main(int argc, const char* argv[])
         /*
         else if (DO_SVR(argc, argv) && EXIT_SUCCESS !=(err = Svr()))
         {
-            BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
-                "Fail in Svr() = %d", err);
+            BMERR_LOGBREAKEX("Fail in Svr() = %d", err);
         }
         else if (DO_CLI(argc, argv) && EXIT_SUCCESS !=(err = Cli()))
         {
-            BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
-                "Fail in Cli() = %d", err);
+            BMERR_LOGBREAKEX("Fail in Cli() = %d", err);
         }
         */
+        else if (DO_COMM(argc, argv) && EXIT_SUCCESS != (err = CommUT()))
+        {
+            BMERR_LOGBREAKEX("Fail in Comm() = %d", err);
+        }
         // if it did one of special tests, it terminates the program.
         if (
             DO_TICKUT(argc, argv) || 
             DO_SVR(argc, argv) || 
-            DO_CLI(argc,argv)) break;
+            DO_CLI(argc, argv) ||
+            DO_COMM(argc, argv)) break;
 
         // beginning of general tests
         if (EXIT_SUCCESS != (err = EvPoolUT()))

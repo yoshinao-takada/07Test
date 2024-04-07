@@ -1,8 +1,11 @@
 #include "BMComm.h"
+#include "BMFSM.h"
+#include "BMCRC.h"
 #include <sys/param.h>
+#include <math.h>
 
 #pragma region BAUDRATE_UTILITY
-static const int BAUD_MAP[][2] =
+static const int BAUD_MAP[9][2] =
 {
     { 1200, B1200 },
     { 2400, B2400 },
@@ -82,19 +85,19 @@ BMBaudDesc_ToSecPerByte(int fd, double* secPerByte)
     return status;
 }
 #pragma endregion BAUDRATE_UTILITY
-
-static BMStatus_t Open(BMCommConf_cpt conf, int* pfd)
+#pragma region BMComm
+BMStatus_t BMComm_Open(BMCommConf_cpt conf, BMComm_pt comm)
 {
     struct termios opt;
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-        *pfd = open(conf->devname, O_RDWR | O_NOCTTY /*| O_NONBLOCK*/);
-        if (-1 == *pfd)
+        comm->fd = open(conf->devname, O_RDWR | O_NOCTTY /*| O_NONBLOCK*/);
+        if (-1 == comm->fd)
         {
             status = BMSTATUS_INVALID;
             break;
         }
-        tcgetattr(*pfd, &opt);
+        tcgetattr(comm->fd, &opt);
         cfsetispeed(&opt, conf->bauddesc);
         cfsetospeed(&opt, conf->bauddesc);
         opt.c_cflag &= ~(PARENB | CSTOPB | CSIZE);
@@ -108,31 +111,141 @@ static BMStatus_t Open(BMCommConf_cpt conf, int* pfd)
         // characters are received.
         opt.c_cc[VMIN] = 1;
         opt.c_cc[VTIME] = 0;
-        tcsetattr(*pfd, TCSANOW, &opt);
+        tcsetattr(comm->fd, TCSANOW, &opt);
+        status = BMBaudDesc_ToSecPerByte(comm->fd, &comm->secPerByte);
     } while (0);
     return status;
 }
 
-BMStatus_t BMCommCtx_Open(BMCommCtx_pt ctx, BMCommConf_cpt conf)
+void BMComm_Close(BMComm_pt comm)
+{
+    if (comm->fd > 0)
+    {
+        close(comm->fd);
+        comm->fd = -1;
+        comm->secPerByte = 0.0;
+    }
+}
+#pragma endregion BMComm
+
+#pragma region BMCommRx
+static void*
+CommRxEnableTx(void* param)
+{
+    BMCommRx_pt rx = (BMCommRx_pt)param;
+    pthread_spin_unlock(&rx->txdisable);
+    return param;
+}
+
+static void
+CommRxSigIntHandler(int sig)
+{
+
+}
+
+static void
+RegCommRxSigIntHandler()
+{
+    struct sigaction sa;
+    sa.sa_flags = 0;
+    sa.sa_handler = CommRxSigIntHandler;
+    sigemptyset(&sa.sa_mask) ;
+    sigaction(SIGINT, &sa, NULL);
+}
+
+void
+BMCommRx_Init(BMCommRx_pt Rx, BMCommRxConf_cpt conf, BMComm_cpt comm)
+{
+    Rx->base.fd = comm->fd;
+    Rx->base.secPerByte = comm->secPerByte;
+    Rx->rxrb = conf->rxrb;
+    Rx->delay_init = MAX(1, 
+        (int)floor(0.5 + 1000 * Rx->base.secPerByte / 10));
+    Rx->delay = conf->delay;
+    Rx->delay->count = Rx->delay->init = 0;
+    Rx->delay->handler = CommRxEnableTx;
+    Rx->delay->param = Rx;
+    Rx->oq = conf->oq;
+    Rx->ev.listeners = 0;
+    Rx->ev.param = Rx->rxrb;
+    Rx->ev.id = 0;
+    Rx->quit_request = 0;
+    Rx->rxbuflen = RXBUF_LEN;
+    pthread_spin_init(&Rx->txdisable, PTHREAD_PROCESS_PRIVATE);
+
+    RegCommRxSigIntHandler();
+}
+
+static void*
+CommRxThread(void* param) 
+{
+    BMCommRx_pt rx = (BMCommRx_pt)param;
+    while (!rx->quit_request)
+    {
+        pthread_spin_lock(&rx->txdisable);
+        rx->delay->count = rx->delay_init;
+        ssize_t readlen = read(rx->base.fd, rx->rxbuf, rx->rxbuflen);
+        if (readlen > 0)
+        {
+            uint16_t putlen = 
+                BMRingBuffer_Puts(rx->rxrb, rx->rxbuf, (uint16_t)readlen);
+            if (putlen == (uint16_t)readlen)
+            {
+                rx->delay->count = rx->delay_init; // reset one-shot timer
+                if (rx->ev.listeners == 0)
+                {
+                    assert(1 == BMEvQ_Put(rx->oq, &rx->ev));
+                }
+            }
+            else
+            {
+                fprintf(stderr, "Ring buffer overflow @ %s,%s,%d\n",
+                    __FILE__, __FUNCTION__, __LINE__);
+            }
+        }
+    }
+    return param;
+}
+
+BMStatus_t BMCommRx_Start(BMCommRx_pt Rx)
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-        if (BMSTATUS_SUCCESS != (status = Open(conf, &(ctx->fd))))
+        if (pthread_create(&Rx->th, NULL, CommRxThread, (void*)Rx))
         {
+            status = BMSTATUS_INVALID;
             break;
         }
-        if (BMSTATUS_SUCCESS != 
-            (status = BMBaudDesc_ToSecPerByte(ctx->fd, &ctx->secPerByte)))
-        {
-            break;
-        }
-        ctx->rxrb = conf->rxrb;
-        ctx->delay = conf->delay;
     } while (0);
     return status;
 }
 
-void BMCommCtx_Close(BMCommCtx_pt ctx)
+BMStatus_t BMCommRx_Stop(BMCommRx_pt Rx)
 {
-    close(ctx->fd);
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    do {
+        Rx->quit_request = 1;
+        if (pthread_kill(Rx->th, SIGINT))
+        {
+            status = BMSTATUS_INVALID;
+            break;
+        }
+    } while (0);
+    return status;
 }
+#pragma endregion BMCommRx
+#pragma region BMCommTx
+BMStateResult_t BMCommTx_Empty(BMFSM_pt fsm, BMEv_pt ev)
+{
+    BMStateResult_t result = BMStateResult_IGNORE;
+
+    return result;
+}
+
+BMStateResult_t BMCommTx_Remaining(BMFSM_pt fsm, BMEv_pt ev)
+{
+    BMStateResult_t result = BMStateResult_IGNORE;
+
+    return result;
+}
+#pragma endregion BMCommTx

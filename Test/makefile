@@ -12,7 +12,7 @@ DEBUG_MAINOBJ = $(DEBUG_OBJDIR)/Test.o
 RELEASE_MAINOBJ = $(RELEASE_OBJDIR)/Test.o
 DEBUG_OBJECTS = $(DEBUG_OBJDIR)/Test.o \
 	$(DEBUG_OBJDIR)/TickUT.o $(DEBUG_OBJDIR)/EvPoolUT.o \
-	$(DEBUG_OBJDIR)/BufferUT.o
+	$(DEBUG_OBJDIR)/BufferUT.o $(DEBUG_OBJDIR)/CommUT.o
 	
 
 debug	:	$(DEBUG_TARGET)
@@ -29,6 +29,9 @@ $(DEBUG_OBJDIR)/EvPoolUT.o	:	EvPoolUT.c
 	$(CC) $(DEBUG_CC_FLAGS) -o $@ $<
 
 $(DEBUG_OBJDIR)/BufferUT.o	:	BufferUT.c
+	$(CC) $(DEBUG_CC_FLAGS) -o $@ $<
+
+$(DEBUG_OBJDIR)/CommUT.o	:	CommUT.c
 	$(CC) $(DEBUG_CC_FLAGS) -o $@ $<
 
 clean_debug	:

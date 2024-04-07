@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "limits": "c",
+        "*.tcc": "c",
+        "bmcomm.h": "c",
+        "bmbase.h": "c"
+    }
+}

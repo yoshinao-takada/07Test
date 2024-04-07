@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <stddef.h>
 #include <assert.h>
+#include "BMEvId.h"
 
 // Error log
 #define BMERR_LOG(_file,_fn,_ln,...) \
@@ -75,24 +76,18 @@ typedef uint16_t    BMId_t;
 
 #pragma region Declare_BMEv_t
 /*!
-\brief Declare event ID type.
-*/
-typedef union {
-    void* ptr;
-    BMId_t id;
-} BMEvId_t, *BMEvId_pt;
-
-/*!
 \brief Declare event type.
 */
 typedef struct {
     // identifier of an event.
-    BMEvId_t id;
+    uint16_t id;
 
     // `listeners` counts active listeners of the event.
     // Each listner decrement listeners when the listner releases the event.
     // The event can be recycled if listners == 0.
     uint16_t listeners;
+
+    void* param;
 } BMEv_t, *BMEv_pt;
 #pragma endregion Declare_BMEv_t
 
@@ -123,6 +118,42 @@ pthread_spin_init(&(_varname.qbase.lock), PTHREAD_PROCESS_PRIVATE)
 
 #define BMEvQ_DEINIT(_varname) \
 pthread_spin_destroy(&(_varname.qbase.lock))
+
+/*!
+\brief declare an array of event queues.
+\param _varname [in] array name
+\param _size [in] buffer size in each queue
+\param _count [in] array element count
+*/
+#define BMEvQ_ADECL(_varname, _size, _count) \
+EMEv_pt _varname ## _ev[_size * _count]; \
+BMEvQ_t _varname[_count];
+
+#define BMEvQ_SADECL(_varname, _size, _count) \
+static EMEv_pt _varname ## _ev[_size * _count]; \
+static BMEvQ_t _varname[_count];
+
+#define BMEvQ_AINIT(_varname) \
+{ \
+    int _count = ARRAYSIZE(_varname); \
+    int _size = ARRAYSIZE(_varname ## _ev) / _count; \
+    for (int _i = 0; _i < _count; _i++) \
+    { \
+        BMQBase_t _qbase = BMQBase(_size); \
+        memcpy(&(_varname[i].qbase), &_qbase, sizeof(BMQBase_t)); \
+        _varname[i].events = _varname ## _ev + _i * _size; \
+        pthread_spin_init(&(_varname[i].qbase.lock), PTHREAD_PROCESS_PRIVATE); \
+    } \
+}
+
+#define BMEvQ_ADEINIT(_varname) \
+{ \
+    int _count = ARRAYSIZE(_varname); \
+    for (int _i = 0; _i < _count; _i++) \
+    { \
+        pthread_spin_destroy(&(_varname[i].qbase.lock)); \
+    } \
+}
 
 /*!
 \brief put an event pointer to the queue.
@@ -187,8 +218,8 @@ static BMEvPool_t _varname = { _varname ## _ev, _size, 0, 0 }
 #define BMEvPool_INIT(_varname) { \
     for (uint16_t i = 0; i < _varname.count; i++) \
     { \
-        _varname.ev[i].id.ptr = NULL; \
-        _varname.ev[i].listeners = 0; \
+        _varname.ev[i].param = NULL; \
+        _varname.ev[i].id = _varname.ev[i].listeners = 0; \
     } \
     pthread_spin_init(&_varname.lock, PTHREAD_PROCESS_PRIVATE); \
 }
@@ -215,6 +246,47 @@ typedef struct {
 #define BMRingBuffer_DECL(_varname, _size) \
 uint8_t _varname ## _bytes[_size]; \
 BMRingBuffer_t _varname = { BMQBase(_size), _varname ## _bytes }
+
+#define BMRingBuffer_SDECL(_varname, _size) \
+static uint8_t _varname ## _bytes[_size]; \
+static BMRingBuffer_t _varname = { BMQBase(_size), _varname ## _bytes }
+
+#define BMRingBuffer_INIT(_varname) \
+pthread_spin_init(&(_varname.qbase.lock), PTHREAD_PROCESS_PRIVATE)
+
+#define BMRingBuffer_DEINIT(_varname) \
+pthread_spin_destroy(&(_varname.qbase.lock))
+
+#define BMRingBuffer_ADECL(_varname, _size, _count) \
+uint8_t _varname ## _bytes[_size * _count]; \
+BMRingBuffer_t _varname[_count]
+
+#define BMRingBuffer_SADECL(_varname, _size, _count) \
+static uint8_t _varname ## _bytes[_size * _count]; \
+static BMRingBuffer_t _varname[_count]
+
+#define BMRingBuffer_AINIT(_varname) \
+{ \
+    int _count = ARRAYSIZE(_varname); \
+    int _size = ARRAYSIZE(_varname ## _bytes) / _count; \
+    for (int _i = 0; _i < _count; _i++) \
+    { \
+        BMQBase_t _qbase = BMQBase(_size); \
+        memcpy(&(_varname[_i].qbase), &_qbase, sizeof(BMQBase_t)); \
+        _varname[_i].bytes = _varname ## _bytes + _i * _size; \
+        pthread_spin_init(&(_varname[_i].qbase.lock), PTHREAD_PROCESS_PRIVATE); \
+    } \
+}
+
+#define BMRingBuffer_ADEINIT(_varname) \
+{ \
+    int _count = ARRAYSIZE(_varname); \
+    int _size = ARRAYSIZE(_varname ## _bytes) / _count; \
+    for (int _i = 0; _i < _count; _i++) \
+    { \
+        pthread_spin_destroy(&(_varname[_i].qbase.lock)); \
+    } \
+}
 
 /*!
 \brief put a byte to the ring buffer

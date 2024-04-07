@@ -16,10 +16,10 @@ typedef struct BMFSM {
     BMStateResult_t (*state)(struct BMFSM* fsm, BMEv_pt ev);
 
     // input event queue
-    BMEvQ_pt ievq;
+    BMEvQ_pt iq;
 
-    // downstream event queue
-    BMEvQ_pt oevq[MAX_DOWNSTREAM_QUEUES];
+    // input event queues of downstream objects
+    BMEvQ_pt oq[MAX_DOWNSTREAM_QUEUES];
 
     // context can hold a variable of any type.
     void* ctx;

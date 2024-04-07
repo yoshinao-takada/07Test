@@ -89,8 +89,9 @@ void BMEvPool_Init(BMEvPool_pt evpool)
 {
     for (uint16_t i = 0; i < evpool->count; i++)
     {
-        evpool->ev[i].id.ptr = NULL;
+        evpool->ev[i].id = 0;
         evpool->ev[i].listeners = 0;
+        evpool->ev[i].param = NULL;
     }
 }
 
@@ -117,7 +118,8 @@ BMStatus_t BMEvPool_Return(BMEvPool_pt evpool, BMEv_pt ev)
         return BMSTATUS_INVALID;
     }
     evpool->used &= ~flag;
-    evpool->ev[offset].id.ptr = NULL;
+    evpool->ev[offset].param = NULL;
+    evpool->ev[offset].id = 
     evpool->ev[offset].listeners = 0;
     pthread_spin_unlock(&evpool->lock);
     return BMSTATUS_SUCCESS;

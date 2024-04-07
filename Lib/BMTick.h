@@ -72,5 +72,10 @@ BMStatus_t BMSystick_Init(BMEvQ_pt evq, uint16_t period);
 \brief Deinitialize systick timer.
 */
 BMStatus_t BMSystick_Deinit();
+
+/*!
+\brief Get current interval timer setting.
+*/
+void BMSystick_GetInterval(struct timeval* interval);
 #pragma endregion SYSTICK_TIMER
 #endif /* BMTICK_H */

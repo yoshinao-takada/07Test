@@ -109,7 +109,7 @@ int TickUT()
         if (BMSTATUS_SUCCESS != (status = CheckDisp())) break;
         SetupDispatchers(&disp);
         // set base interval to 1ms.
-        if (BMSTATUS_SUCCESS != (status = BMSystick_Init(disp.q, 1))) break;
+        if (BMSTATUS_SUCCESS != (status = BMSystick_Init(disp.q, 2))) break;
         for (;param0 < 100;)
         {
             status = BMDispatchers_CrunchEvent(&disp);

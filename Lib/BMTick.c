@@ -110,7 +110,7 @@ BMStatus_t BMDispatchers_CrunchEvent(BMDispatchers_pt dispatchers)
     return status;
 }
 
-static BMEv_t ev = { { 0 }, 0 };
+static BMEv_t ev = { BMEVID_TICK, 0, NULL };
 
 static BMEvQ_pt dispatcher_queue;
 
@@ -150,10 +150,10 @@ static void handler(int sig)
 }
 
 static struct itimerval itold;
+static struct itimerval itnew;
 
 BMStatus_t BMSystick_Init(BMEvQ_pt evq, uint16_t period)
 {
-    struct itimerval itnew;
     struct sigaction sa;
     sa.sa_flags = 0;
     sa.sa_handler = handler;
@@ -194,4 +194,9 @@ BMStatus_t BMSystick_Deinit()
         }
     } while (0);
     return status;
+}
+
+void BMSystick_GetInterval(struct timeval* interval)
+{
+    interval = &itnew.it_interval;
 }
