@@ -238,7 +238,21 @@ BMStatus_t BMCommRx_Stop(BMCommRx_pt Rx)
 BMStateResult_t BMCommTx_Empty(BMFSM_pt fsm, BMEv_pt ev)
 {
     BMStateResult_t result = BMStateResult_IGNORE;
-
+    if (ev->id != BMEVID_TXSTART)
+    {
+        return result;
+    }
+    BMCommTxCtx_pt ctx = (BMCommTxCtx_pt)(fsm->ctx);
+    if (0 == BMBufferQ_Put(ctx->bufq, (BMBuffer_pt)(ev->param)))
+    {
+        return BMStateResult_ERR;
+    }
+    else if (pthread_spin_trylock(&ctx->rx->txdisable))
+    {
+        fsm->state = BMCommTx_Remaining;
+        return BMStateResult_TRANSIT;
+    }
+    BMBuffer_pt buf = BMBufferQ_Peek(ctx->bufq);
     return result;
 }
 

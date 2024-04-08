@@ -36,6 +36,16 @@ uint16_t BMBufferQ_Get(BMBufferQ_pt q, BMBuffer_pt *ppbuffer)
     BMQBase_UNLOCK(q->qbase);
     return result;
 }
+
+BMBuffer_pt BMBufferQ_Peek(BMBufferQ_pt q)
+{
+    BMQBase_LOCK(q->qbase);
+    if (q->qbase.rdidx == q->qbase.wridx)
+    { // queue is empty.
+        return NULL;
+    }
+    return q->buffers[q->qbase.rdidx];
+}
 #pragma endregion BMBufferQ_Impl
 
 #pragma region BMBufferPool_Impl
@@ -74,13 +84,14 @@ BMBuffer_pt BMBufferPool_Get(BMBufferPool_pt bpl)
     return p;
 }
 
-BMStatus_t BMBufferPool_Return(BMBufferPool_pt bpl, BMBuffer_cpt buffer)
+BMStatus_t BMBufferPool_Return(BMBufferPool_pt bpl, BMBuffer_pt buffer)
 {
     BMStatus_t result = BMSTATUS_INVALID;
     pthread_spin_lock(&bpl->lock);
     uint16_t ptr_offset = buffer - (bpl->buffers);
     if (ptr_offset < bpl->size)
     {
+        buffer->filled = buffer->crunched = 0;
         bpl->used &= ~(1 << ptr_offset);
         result = BMSTATUS_SUCCESS;
     }

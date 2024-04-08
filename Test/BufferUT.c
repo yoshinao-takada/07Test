@@ -28,7 +28,8 @@ BMStatus_t CheckBufpool()
         for (uint16_t i = 0; i < bufpool.size; i++)
         {
             if ((bufpool.buffers[i].size != BUF_SIZE) ||
-                (bufpool.buffers[i].filled != 0))
+                (bufpool.buffers[i].filled != 0) ||
+                (bufpool.buffers[i].crunched != 0))
             {
                 status = BMSTATUS_INVALID;
                 BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,

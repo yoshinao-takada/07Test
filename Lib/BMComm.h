@@ -5,7 +5,6 @@
 #include "BMBuffer.h"
 #include "BMCRC.h"
 #include "BMFSM.h"
-#define MIN_BLK_LEN 8
 #define MAX_RX_CH   4 /* multiple static buffers are declared. */
 #define RXBUF_LEN   8
 
@@ -101,10 +100,14 @@ BMStatus_t BMCommRx_Stop(BMCommRx_pt Rx);
 #pragma endregion BMCommRx
 
 #pragma region BMCommTx
+/*!
+\brief FSM context of BMComm Tx statemachine.
+*/
 typedef struct {
     BMCRC_t crc;
     BMComm_pt comm;
     BMBufferQ_pt bufq;
+    BMCommRx_pt rx;
 } BMCommTxCtx_t, *BMCommTxCtx_pt;
 typedef const BMCommTxCtx_t *BMCommTxCtx_cpt;
 

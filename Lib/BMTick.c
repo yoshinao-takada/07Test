@@ -129,12 +129,7 @@ static void handler(int sig)
             BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
                 "event object busy");
         }
-        if (!dispatcher_queue)
-        {
-            status = BMSTATUS_NOTINIT;
-            BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
-                "dispatcher_queue NULL");
-        }
+        assert(dispatcher_queue);
         uint16_t count = BMEvQ_Put(dispatcher_queue, &ev);
         if (count == 0)
         {

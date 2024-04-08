@@ -5,19 +5,21 @@
 #pragma region DECLARE_BMBuffer_t
 typedef struct {
     uint8_t *buf;
-    uint16_t size, filled;
+    uint16_t size, filled, crunched;
 } BMBuffer_t, *BMBuffer_pt;
 typedef const BMBuffer_t *BMBuffer_cpt;
 
 /*!
 \brief Clear the buffer.
 */
-#define BMBuffer_CLEAR(_buf) ((_buf).filled = 0)
+#define BMBuffer_CLEAR(_buf) (_buf).filled = (_buf).crunched = 0
 
 /*!
 \brief Get the pointer pointing the byte to write.
 */
 #define BMBuffer_WRPTR(_buf) ((_buf).buffer + (_buf).filled)
+
+#define BMBuffer_RDPTR(_buf) ((_buf).buffer + (_buf).crunched)
 
 /*!
 \brief Available byte count in the buffer.
@@ -26,7 +28,7 @@ typedef const BMBuffer_t *BMBuffer_cpt;
 
 #define BMBuffer_DECL(_varname, _size) \
     uint8_t _varname ## _buf[_size]; \
-    BMBuffer_t _varname = { _varname ## _buf, _size, 0 }
+    BMBuffer_t _varname = { _varname ## _buf, _size, 0, 0 }
 #pragma endregion DECLARE_BMBuffer_t
 
 #pragma region DECLARE_BMBufferQ_t
@@ -60,6 +62,17 @@ uint16_t BMBufferQ_Put(BMBufferQ_pt q, BMBuffer_pt buffer);
 \brief get a buffer from a queue.
 */
 uint16_t BMBufferQ_Get(BMBufferQ_pt q, BMBuffer_pt *ppbuffer);
+
+/*!
+\brief peek the first content in the queue.
+*/
+BMBuffer_pt BMBufferQ_Peek(BMBufferQ_pt q);
+
+/*!
+\brief unlock the buffer queue. It is used after BMBufferQ_Peek()
+    because The function returns leaving the queue locked.
+*/
+#define BMBufferQ_UNLOCK(_q) BMQBase_UNLOCK(_q->qbase)
 #pragma endregion DECLARE_BMBufferQ_t
 
 #pragma region DECLARE_BMBufferPool_t
@@ -107,7 +120,7 @@ typedef const BMBufferPool_t *BMBufferPool_cpt;
     for (uint16_t i = 0; i < _varname.size; i++) { \
         _varname.buffers[i].buf = (_varname ## _bufferbody) + i * _bufsize; \
         _varname.buffers[i].size = _bufsize; \
-        _varname.buffers[i].filled = 0; \
+        _varname.buffers[i].filled = _varname.buffers[i].crunched = 0; \
     } \
 }
 
@@ -138,6 +151,6 @@ BMBuffer_pt BMBufferPool_Get(BMBufferPool_pt bpl);
 /*!
 \brief return a buffer.
 */
-BMStatus_t BMBufferPool_Return(BMBufferPool_pt bpl, BMBuffer_cpt buffer);
+BMStatus_t BMBufferPool_Return(BMBufferPool_pt bpl, BMBuffer_pt buffer);
 #pragma endregion DECLARE_BMBufferPool_t
 #endif /* BMBUFFER_H */
