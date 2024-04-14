@@ -1,9 +1,4 @@
 #include "BMComm.h"
-#include "BMFSM.h"
-#include "BMCRC.h"
-#include <sys/param.h>
-#include <math.h>
-
 #pragma region BAUDRATE_UTILITY
 static const int BAUD_MAP[9][2] =
 {
@@ -128,138 +123,46 @@ void BMComm_Close(BMComm_pt comm)
 }
 #pragma endregion BMComm
 
-#pragma region BMCommRx
-static void*
-CommRxEnableTx(void* param)
-{
-    BMCommRx_pt rx = (BMCommRx_pt)param;
-    pthread_spin_unlock(&rx->txdisable);
-    return param;
-}
-
-static void
-CommRxSigIntHandler(int sig)
-{
-
-}
-
-static void
-RegCommRxSigIntHandler()
-{
-    struct sigaction sa;
-    sa.sa_flags = 0;
-    sa.sa_handler = CommRxSigIntHandler;
-    sigemptyset(&sa.sa_mask) ;
-    sigaction(SIGINT, &sa, NULL);
-}
-
-void
-BMCommRx_Init(BMCommRx_pt Rx, BMCommRxConf_cpt conf, BMComm_cpt comm)
-{
-    Rx->base.fd = comm->fd;
-    Rx->base.secPerByte = comm->secPerByte;
-    Rx->rxrb = conf->rxrb;
-    Rx->delay_init = MAX(1, 
-        (int)floor(0.5 + 1000 * Rx->base.secPerByte / 10));
-    Rx->delay = conf->delay;
-    Rx->delay->count = Rx->delay->init = 0;
-    Rx->delay->handler = CommRxEnableTx;
-    Rx->delay->param = Rx;
-    Rx->oq = conf->oq;
-    Rx->ev.listeners = 0;
-    Rx->ev.param = Rx->rxrb;
-    Rx->ev.id = 0;
-    Rx->quit_request = 0;
-    Rx->rxbuflen = RXBUF_LEN;
-    pthread_spin_init(&Rx->txdisable, PTHREAD_PROCESS_PRIVATE);
-
-    RegCommRxSigIntHandler();
-}
-
-static void*
-CommRxThread(void* param) 
-{
-    BMCommRx_pt rx = (BMCommRx_pt)param;
-    while (!rx->quit_request)
-    {
-        pthread_spin_lock(&rx->txdisable);
-        rx->delay->count = rx->delay_init;
-        ssize_t readlen = read(rx->base.fd, rx->rxbuf, rx->rxbuflen);
-        if (readlen > 0)
-        {
-            uint16_t putlen = 
-                BMRingBuffer_Puts(rx->rxrb, rx->rxbuf, (uint16_t)readlen);
-            if (putlen == (uint16_t)readlen)
-            {
-                rx->delay->count = rx->delay_init; // reset one-shot timer
-                if (rx->ev.listeners == 0)
-                {
-                    assert(1 == BMEvQ_Put(rx->oq, &rx->ev));
-                }
-            }
-            else
-            {
-                fprintf(stderr, "Ring buffer overflow @ %s,%s,%d\n",
-                    __FILE__, __FUNCTION__, __LINE__);
-            }
-        }
-    }
-    return param;
-}
-
-BMStatus_t BMCommRx_Start(BMCommRx_pt Rx)
+BMStatus_t BMCommCtx_Init
+(BMCommCtx_pt ctx, BMComm_cpt comm, BMDispatchers_pt dispather,
+ BMEvQ_pt phyQ)
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-        if (pthread_create(&Rx->th, NULL, CommRxThread, (void*)Rx))
+        // init serialport file descriptors
+        memcpy(&ctx->rxctx.base.base, comm, sizeof(BMComm_t));
+        memcpy(&ctx->txctx.base, comm, sizeof(BMComm_t));
+
+        // init write prohibit
+        if (pthread_spin_init(&ctx->wrproh, PTHREAD_PROCESS_PRIVATE))
         {
             status = BMSTATUS_INVALID;
             break;
         }
+        ctx->txctx.wrproh = ctx->rxctx.base.wrproh = &ctx->wrproh;
+
+        // init buffers
+
     } while (0);
     return status;
 }
 
-BMStatus_t BMCommRx_Stop(BMCommRx_pt Rx)
+void* BMComm_RxTh(void* ctx)
 {
-    BMStatus_t status = BMSTATUS_SUCCESS;
-    do {
-        Rx->quit_request = 1;
-        if (pthread_kill(Rx->th, SIGINT))
-        {
-            status = BMSTATUS_INVALID;
-            break;
-        }
-    } while (0);
-    return status;
-}
-#pragma endregion BMCommRx
-#pragma region BMCommTx
-BMStateResult_t BMCommTx_Empty(BMFSM_pt fsm, BMEv_pt ev)
-{
-    BMStateResult_t result = BMStateResult_IGNORE;
-    if (ev->id != BMEVID_TXSTART)
+    BMCommRxThCtx_pt ctx_ = (BMCommRxThCtx_pt)ctx;
+    while (ctx_->base.cont)
     {
-        return result;
+
     }
-    BMCommTxCtx_pt ctx = (BMCommTxCtx_pt)(fsm->ctx);
-    if (0 == BMBufferQ_Put(ctx->bufq, (BMBuffer_pt)(ev->param)))
-    {
-        return BMStateResult_ERR;
-    }
-    else if (pthread_spin_trylock(&ctx->rx->txdisable))
-    {
-        fsm->state = BMCommTx_Remaining;
-        return BMStateResult_TRANSIT;
-    }
-    BMBuffer_pt buf = BMBufferQ_Peek(ctx->bufq);
-    return result;
+    return ctx;
 }
 
-BMStateResult_t BMCommTx_Remaining(BMFSM_pt fsm, BMEv_pt ev)
+void* BMComm_TxTh(void* ctx)
 {
-    BMStateResult_t result = BMStateResult_IGNORE;
+    BMCommThCtx_pt ctx_ = (BMCommThCtx_pt)ctx;
+    while (ctx_->cont)
+    {
 
-    return result;
+    }
+    return ctx;
 }
-#pragma endregion BMCommTx

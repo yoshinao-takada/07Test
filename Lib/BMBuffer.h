@@ -1,6 +1,18 @@
 #if !defined(BMBUFFER_H)
 #define BMBUFFER_H
 #include "BMBase.h"
+#if !defined(BMBUFFERPOOL_LONGBUFFERCOUNT)
+#define BMBUFFERPOOL_LONGBUFFERCOUNT    16
+#endif
+#if !defined(BMBUFFERPOOL_SHORTBUFFERCOUNT)
+#define BMBUFFERPOOL_SHORTBUFFERCOUNT   8
+#endif
+#if !defined(BMBUFFERPOOL_LONGBUFFERSIZE)
+#define BMBUFFERPOOL_LONGBUFFERSIZE    64
+#endif
+#if !defined(BMBUFFERPOOL_SHORTBUFFERSIZE)
+#define BMBUFFERPOOL_SHORTBUFFERSIZE   16
+#endif
 
 #pragma region DECLARE_BMBuffer_t
 typedef struct {
@@ -67,12 +79,6 @@ uint16_t BMBufferQ_Get(BMBufferQ_pt q, BMBuffer_pt *ppbuffer);
 \brief peek the first content in the queue.
 */
 BMBuffer_pt BMBufferQ_Peek(BMBufferQ_pt q);
-
-/*!
-\brief unlock the buffer queue. It is used after BMBufferQ_Peek()
-    because The function returns leaving the queue locked.
-*/
-#define BMBufferQ_UNLOCK(_q) BMQBase_UNLOCK(_q->qbase)
 #pragma endregion DECLARE_BMBufferQ_t
 
 #pragma region DECLARE_BMBufferPool_t
@@ -152,5 +158,15 @@ BMBuffer_pt BMBufferPool_Get(BMBufferPool_pt bpl);
 \brief return a buffer.
 */
 BMStatus_t BMBufferPool_Return(BMBufferPool_pt bpl, BMBuffer_pt buffer);
+
+typedef enum {
+    BMBufferPoolType_LONG,
+    BMBufferPoolType_SHORT,
+} BMBufferPoolType_t;
+
+BMBuffer_pt BMBufferPool_SGet(BMBufferPoolType_t type);
+BMStatus_t BMBufferPool_SReturn(BMBuffer_pt buffer);
+void BMBufferPool_SInit();
+void BMBufferPool_SDeinit();
 #pragma endregion DECLARE_BMBufferPool_t
 #endif /* BMBUFFER_H */

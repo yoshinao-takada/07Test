@@ -1,5 +1,15 @@
 @startuml
-participant SYSTEM as SYS order 0
-participant "RX\nBuffer" as RxBuf order 10
-participant "Tx\nBuffer" as TxBuf order 20
+participant "Rx-thread" as RXTH order 0
+participant "Rx\nRing Buffer" as RXRB order 20
+participant "Tx-thread" as TXTH order 30
+participant "Tx\nRing Buffer" as TXRB order 40
+participant "PHY\nFSM" as PHY order 50
+participant "Delay\nTimer" as DTM order 60
+-> RXTH : chars
+RXTH -> RXRB : chars
+RXTH -> PHY : notify of chars
+PHY -> DTM : restart
+PHY -> RXRB : request chars
+RXRB -> PHY : chars
+PHY -> : chars
 @enduml

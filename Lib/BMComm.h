@@ -1,12 +1,13 @@
-#if !defined(BMCommRx_H)
-#define BMCommRx_H
+#if !defined(BMCOMM_H)
+#define BMCOMM_H
 #include "BMBase.h"
-#include "BMTick.h"
-#include "BMBuffer.h"
-#include "BMCRC.h"
 #include "BMFSM.h"
-#define MAX_RX_CH   4 /* multiple static buffers are declared. */
-#define RXBUF_LEN   8
+#include "BMBuffer.h"
+#include "BMRingBuffer.h"
+#include "BMCRC.h"
+#include "BMTick.h"
+#define BMCOMM_MAX_CH   4
+#define BMCOMM_RAW_BUFSIZE  16
 
 #pragma region BAUDRATE_UTILITY
 /*!
@@ -26,6 +27,7 @@ BMStatus_t
 BMBaudDesc_ToSecPerByte(int fd, double* secPerByte);
 #pragma endregion BAUDRATE_UTILITY
 #pragma region BMComm
+// BMComm_t manage a file descriptor and its byte time perild.
 /*!
 \brief serialport configuration struct.
 */
@@ -51,74 +53,77 @@ BMStatus_t BMComm_Open(BMCommConf_cpt conf, BMComm_pt comm);
 
 void BMComm_Close(BMComm_pt comm);
 #pragma endregion BMComm
-#pragma region BMCommRx
-typedef struct {
-    BMRingBuffer_pt rxrb; // Rx ring buffer
 
-    // A single shot delay timer is allocated to prohibit
-    // transmission after it start to wait for reception.
-    // refer to ../Docs/PHY-TxRx.md
-    BMDispatcher_pt delay;
-
-    BMEvQ_pt oq; // input queue of downstream object
-} BMCommRxConf_t, *BMCommRxConf_pt;
-typedef const BMCommRxConf_t *BMCommRxConf_cpt;
-
-typedef struct {
-    BMComm_t base;
-    BMRingBuffer_pt rxrb; // Rx ring buffer
-    uint16_t delay_init;
-    BMDispatcher_pt delay; // single shot delay
-    BMEvQ_pt oq; // input queue of downstream object
-    BMEv_t ev; // event to transfer to the downstream object
-    pthread_t th; // read thread
-    pthread_spinlock_t txdisable;
-    int32_t quit_request;
-    uint8_t rxbuf[RXBUF_LEN];
-    uint16_t rxbuflen;
-} BMCommRx_t, *BMCommRx_pt;
-
+#pragma region BMCommThCtx
 /*!
-\brief Init a serialport receiver
-\param conf [in] configuration info
-\param fd [in] file descriptor of the serialport
-\param Rx [out] serialport Rx context opened with the configuration.
-*/
-void
-BMCommRx_Init(BMCommRx_pt Rx, BMCommRxConf_cpt conf, BMComm_cpt comm);
-
-/*!
-\brief start Rx thread
-*/
-BMStatus_t BMCommRx_Start(BMCommRx_pt Rx);
-
-/*!
-\brief stop Rx thread
-*/
-BMStatus_t BMCommRx_Stop(BMCommRx_pt Rx);
-
-#pragma endregion BMCommRx
-
-#pragma region BMCommTx
-/*!
-\brief FSM context of BMComm Tx statemachine.
+\brief thread parameter of Rx thread.
+Rx thread dose
+1) prohibit Tx until prohibit timer timeout
+2) blocking read()
+3A) puts Rx chars into Rx Ringbuffer
+3B) prohibit timeout cancels the prohibition.
+4A) notify PHY FSM of NOT empty Rx Ringbuffer
+5) goto 1)
+Participant in the acitvity are
+1> Ring buffer
+2> one-shot delay timer
+3> exclusive control object to control Tx prohibition
+4> serialport file descriptor and byte time
+5> event queue of PHY FSM
 */
 typedef struct {
-    BMCRC_t crc;
-    BMComm_pt comm;
-    BMBufferQ_pt bufq;
-    BMCommRx_pt rx;
-} BMCommTxCtx_t, *BMCommTxCtx_pt;
-typedef const BMCommTxCtx_t *BMCommTxCtx_cpt;
+    BMComm_t base; // serialport descriptor
+    void* (*thstart)(void*); // thread function
+    pthread_t th; // thread
+    pthread_spinlock_t* wrproh; // write prohibit
+    int cont; // flag to continue to thread main loop
+    BMEvQ_pt evq; // event queue of PHY FSM
+    BMEv_t ev; // event real body sent to PHY FSM
+    BMRingBuffer_pt rb; // ringbuffer shared with PHY FSM
+    BMBuffer_pt buffer; // raw Rx buffer which thread func uses.
+    BMStatus_t status; // thread result status
+} BMCommThCtx_t, *BMCommThCtx_pt;
+
+typedef struct {
+    BMCommThCtx_t base;
+    BMDispatcher_pt oneshot; // 1-shot delay timer to prohibit write operation
+} BMCommRxThCtx_t, *BMCommRxThCtx_pt;
+
 
 /*!
-\brief handler of state, "Empty"
+\brief Rx thread function
 */
-BMStateResult_t BMCommTx_Empty(BMFSM_pt fsm, BMEv_pt ev);
+void* BMComm_RxTh(void* ctx);
 
 /*!
-\brief handler of state, "Remaining"
+\brief Tx thread function
 */
-BMStateResult_t BMCommTx_Remaining(BMFSM_pt fsm, BMEv_pt ev);
-#pragma endregion BMCommTx
-#endif /* BMCommRx_H */
+void* BMComm_TxTh(void* ctx);
+#pragma endregion BMCommThCtx
+
+typedef struct {
+    BMCommRxThCtx_t rxctx;
+    BMCommThCtx_t txctx;
+    pthread_spinlock_t wrproh;
+    BMEvQ_pt dllQ; // datalink layer input queue
+} BMCommCtx_t, *BMCommCtx_pt;
+
+
+/*!
+\brief init FSM context
+*/
+BMStatus_t BMCommCtx_Init
+(BMCommCtx_pt ctx, BMComm_cpt comm, BMDispatchers_pt dispather,
+ BMEvQ_pt phyQ);
+
+void BMCommCtx_Deinit(BMCommCtx_pt ctx);
+
+// reading state
+BMStateResult_t BMCommFSM_Read(BMFSM_pt fsm, BMEv_pt ev);
+
+// read & pause state
+BMStateResult_t BMCommFSM_ReadPause(BMFSM_pt fsm, BMEv_pt ev);
+
+// writing state
+BMStateResult_t BMCommFSM_Write(BMFSM_pt fsm, BMEv_pt ev);
+#endif /* BMCOMM_H */

@@ -115,13 +115,13 @@ int TickUT()
             status = BMDispatchers_CrunchEvent(&disp);
             if (BMSTATUS_SUCCESS != status)
             {
-                BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
+                BMERR_LOGBREAKEX(
                     "Fail in BMDispatchers_CrunchEvent(&disp)");
             }
             pause(); // wait for the process to be signaled.
         }
     } while (0);
-    BMEND_FUNC(__FILE__, __FUNCTION__, __LINE__,status);
+    BMEND_FUNCEX(status);
     BMSystick_Deinit();
     BMDispatchers_DEINIT(disp);
     return status ? EXIT_FAILURE : EXIT_SUCCESS;

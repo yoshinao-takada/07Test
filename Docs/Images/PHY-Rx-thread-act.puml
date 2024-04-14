@@ -8,8 +8,8 @@ repeat
     if (rxrb overflows?) then (yes)
         :goto error processing;
     endif
-    if (event is available?) then (yes)
-        :Send the event\nto Data Link layer;
+    if (event is available) then (yes)
+        :send the event to PHY FSM;
     endif
 repeat while (forever)
 end

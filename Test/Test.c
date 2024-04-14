@@ -6,6 +6,8 @@ int TickUT();
 int EvPoolUT();
 int BufferUT();
 int CommUT();
+int RTSignalUT();
+int RingBufferUT();
 
 int HasSth(int argc, const char* argv[], const char* sth)
 {
@@ -18,6 +20,7 @@ int HasSth(int argc, const char* argv[], const char* sth)
 #define DO_SVR(_argc, _argv) HasSth(_argc, _argv, "svr")
 #define DO_CLI(_argc, _argv) HasSth(_argc, _argv, "cli")
 #define DO_COMM(_argc, _argv) HasSth(_argc, _argv, "comm")
+#define DO_RTSIG(_argc, _argv) HasSth(_argc, _argv, "rtsig")
 
 
 int main(int argc, const char* argv[])
@@ -44,12 +47,18 @@ int main(int argc, const char* argv[])
         {
             BMERR_LOGBREAKEX("Fail in Comm() = %d", err);
         }
+        else if (DO_RTSIG(argc, argv) &&
+                (EXIT_SUCCESS != (err = RTSignalUT())))
+        {
+            BMERR_LOGBREAKEX("Fail in RTSignalUT() = %d", err);
+        }
         // if it did one of special tests, it terminates the program.
         if (
             DO_TICKUT(argc, argv) || 
             DO_SVR(argc, argv) || 
             DO_CLI(argc, argv) ||
-            DO_COMM(argc, argv)) break;
+            DO_COMM(argc, argv) ||
+            DO_RTSIG(argc, argv)) break;
 
         // beginning of general tests
         if (EXIT_SUCCESS != (err = EvPoolUT()))
@@ -61,6 +70,11 @@ int main(int argc, const char* argv[])
         {
             BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
                 "Fail in BufferUT() = %d", err);
+        }
+        if (EXIT_SUCCESS != (err = RingBufferUT()))
+        {
+            BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
+                "Fail in RingBufferUT() = %d", err);
         }
     } while (0);
     BMEND_FUNC(__FILE__, __FUNCTION__, __LINE__, err);

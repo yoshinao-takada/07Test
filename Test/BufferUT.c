@@ -115,6 +115,77 @@ BMStatus_t GetAndReturn()
     return status;
 }
 
+// check global buffer pool
+BMStatus_t CheckSBufpoolShort()
+{
+    BMStatus_t status = BMSTATUS_SUCCESS, status1 = BMSTATUS_SUCCESS;
+    BMBuffer_pt buffer = NULL;
+    BMBuffer_pt buffers[BMBUFFERPOOL_SHORTBUFFERCOUNT + 8];
+    BMBufferPool_SInit();
+    do {
+        buffer = BMBufferPool_SGet(BMBufferPoolType_SHORT);
+        if (buffer->size != BMBUFFERPOOL_SHORTBUFFERSIZE)
+        {
+            BMERR_LOGBREAKEX("Fail in BMBufferPool_SGet()");
+        }
+        buffers[0] = buffer;
+        for (int i = 1; i < BMBUFFERPOOL_SHORTBUFFERCOUNT; i++)
+        {
+            buffers[i] = BMBufferPool_SGet(BMBufferPoolType_SHORT);
+            if (NULL == buffers[i])
+            {
+                BMERR_LOGBREAKEX(
+                    "Fail in buffers[%d] = BMBufferPool_SGet()", i);
+            }
+        }
+        status = BMBufferPool_SReturn(buffer-1);
+        status1 = BMBufferPool_SReturn(buffers[BMBUFFERPOOL_SHORTBUFFERCOUNT]);
+        if ((BMSTATUS_SUCCESS == status) || (BMSTATUS_SUCCESS == status))
+        {
+            BMERR_LOGBREAKEX(
+                "Fail in BMBufferPool_SReturn(invalid ptr)");
+        }
+        status = BMSTATUS_SUCCESS;
+    } while (0);
+    BMBufferPool_SDeinit();
+    BMEND_FUNCEX(status);
+    return status;
+}
+BMStatus_t CheckSBufpoolLong()
+{
+    BMStatus_t status = BMSTATUS_SUCCESS, status1 = BMSTATUS_SUCCESS;
+    BMBuffer_pt buffer = NULL;
+    BMBuffer_pt buffers[BMBUFFERPOOL_LONGBUFFERCOUNT + 8];
+    BMBufferPool_SInit();
+    do {
+        buffer = BMBufferPool_SGet(BMBufferPoolType_LONG);
+        if (buffer->size != BMBUFFERPOOL_LONGBUFFERSIZE)
+        {
+            BMERR_LOGBREAKEX("Fail in BMBufferPool_SGet()");
+        }
+        buffers[0] = buffer;
+        for (int i = 1; i < BMBUFFERPOOL_LONGBUFFERCOUNT; i++)
+        {
+            buffers[i] = BMBufferPool_SGet(BMBufferPoolType_LONG);
+            if (NULL == buffers[i])
+            {
+                BMERR_LOGBREAKEX(
+                    "Fail in buffers[%d] = BMBufferPool_SGet()", i);
+            }
+        }
+        status = BMBufferPool_SReturn(buffer-1);
+        status1 = BMBufferPool_SReturn(buffers[BMBUFFERPOOL_LONGBUFFERCOUNT]);
+        if ((BMSTATUS_SUCCESS == status) || (BMSTATUS_SUCCESS == status))
+        {
+            BMERR_LOGBREAKEX(
+                "Fail in BMBufferPool_SReturn(invalid ptr)");
+        }
+        status = BMSTATUS_SUCCESS;
+    } while (0);
+    BMBufferPool_SDeinit();
+    BMEND_FUNCEX(status);
+    return status;
+}
 int BufferUT()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
@@ -129,6 +200,16 @@ int BufferUT()
         {
             BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
                 "Fail in GetAndReturn()");
+        }
+        if (BMSTATUS_SUCCESS != (status = CheckSBufpoolShort()))
+        {
+            BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
+                "Fail in CheckSBufpoolShort()");
+        }
+        if (BMSTATUS_SUCCESS != (status = CheckSBufpoolLong()))
+        {
+            BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
+                "Fail in CheckSBufpoolLong()");
         }
     } while (0);
     BMBufferPool_DEINIT(bufpool);

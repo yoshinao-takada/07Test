@@ -39,7 +39,6 @@ uint16_t BMBufferQ_Get(BMBufferQ_pt q, BMBuffer_pt *ppbuffer)
 
 BMBuffer_pt BMBufferQ_Peek(BMBufferQ_pt q)
 {
-    BMQBase_LOCK(q->qbase);
     if (q->qbase.rdidx == q->qbase.wridx)
     { // queue is empty.
         return NULL;
@@ -49,32 +48,13 @@ BMBuffer_pt BMBufferQ_Peek(BMBufferQ_pt q)
 #pragma endregion BMBufferQ_Impl
 
 #pragma region BMBufferPool_Impl
-static int FindAvailable(uint16_t *used, uint16_t size)
-{
-    int found = -1;
-    uint16_t flag = 1;
-    for (int i = 0; i < size; i++)
-    {
-        if (0 == (*used & flag))
-        {
-            *used |= flag;
-            found = i;
-            break;
-        }
-        else
-        {
-            flag <<= 1;
-        }
-    }
-    return found;
-}
 
 BMBuffer_pt BMBufferPool_Get(BMBufferPool_pt bpl)
 {
     BMBuffer_pt p = NULL;
     pthread_spin_lock(&bpl->lock);
     do {
-        int found = FindAvailable(&bpl->used, bpl->size);
+        int found = BMPoolSupport_FindAvailable(&bpl->used, bpl->size);
         if (found >= 0)
         {
             p = bpl->buffers + found;
@@ -84,18 +64,53 @@ BMBuffer_pt BMBufferPool_Get(BMBufferPool_pt bpl)
     return p;
 }
 
-BMStatus_t BMBufferPool_Return(BMBufferPool_pt bpl, BMBuffer_pt buffer)
+BMStatus_t BMBufferPool_Return(BMBufferPool_pt pool, BMBuffer_pt buffer)
 {
-    BMStatus_t result = BMSTATUS_INVALID;
-    pthread_spin_lock(&bpl->lock);
-    uint16_t ptr_offset = buffer - (bpl->buffers);
-    if (ptr_offset < bpl->size)
+    BMStatus_t status = BMSTATUS_INVALID;
+    pthread_spin_lock(&pool->lock);
+    uint16_t ptr_offset = buffer - (pool->buffers);
+    if (ptr_offset < pool->size)
     {
         buffer->filled = buffer->crunched = 0;
-        bpl->used &= ~(1 << ptr_offset);
-        result = BMSTATUS_SUCCESS;
+        pool->used &= ~(1 << ptr_offset);
+        status = BMSTATUS_SUCCESS;
     }
-    pthread_spin_unlock(&bpl->lock);
-    return result;
+    pthread_spin_unlock(&pool->lock);
+    return status;
 }
 #pragma endregion BMBufferPool_Impl
+
+#pragma region BufferPool_GlobalInstaces
+BMBufferPool_SDECL(ShortBufferPool,
+    BMBUFFERPOOL_SHORTBUFFERCOUNT, BMBUFFERPOOL_SHORTBUFFERSIZE);
+BMBufferPool_SDECL(LongBufferPool,
+    BMBUFFERPOOL_LONGBUFFERCOUNT, BMBUFFERPOOL_LONGBUFFERSIZE);
+
+void BMBufferPool_SInit()
+{
+    BMBufferPool_INIT(ShortBufferPool);
+    BMBufferPool_INIT(LongBufferPool);
+}
+void BMBufferPool_SDeinit()
+{
+    BMBufferPool_DEINIT(ShortBufferPool);
+    BMBufferPool_DEINIT(LongBufferPool);
+}
+BMBuffer_pt BMBufferPool_SGet(BMBufferPoolType_t type)
+{
+    return (type == BMBufferPoolType_LONG) ? 
+        BMBufferPool_Get(&LongBufferPool) : BMBufferPool_Get(&ShortBufferPool);
+}
+
+BMStatus_t BMBufferPool_SReturn(BMBuffer_pt buffer)
+{
+    return (buffer->size == BMBUFFERPOOL_LONGBUFFERSIZE) ?
+        BMBufferPool_Return(&LongBufferPool, buffer) :
+        (
+            (buffer->size == BMBUFFERPOOL_SHORTBUFFERSIZE) ?
+                BMBufferPool_Return(&ShortBufferPool, buffer):
+                BMSTATUS_INVALID
+        );
+}
+
+#pragma endregion BufferPool_GlobalInstaces

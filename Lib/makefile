@@ -8,11 +8,11 @@ DEBUG_TARGET = $(DEBUG_BINDIR)/libBMCOMM.a
 RELEASE_TARGET = $(RELEASE_BINDIR)/libBMCOMM.a
 DEBUG_OBJDIR = ../Bin/Debug/o
 DEBUG_OBJECTS = $(DEBUG_OBJDIR)/BMBase.o $(DEBUG_OBJDIR)/BMCRC.o \
-	$(DEBUG_OBJDIR)/BMBuffer.o $(DEBUG_OBJDIR)/BMTick.o \
-	$(DEBUG_OBJDIR)/BMComm.o
+	$(DEBUG_OBJDIR)/BMBuffer.o $(DEBUG_OBJDIR)/BMRingBuffer.o \
+	$(DEBUG_OBJDIR)/BMTick.o $(DEBUG_OBJDIR)/BMComm.o
 RELEASE_OBJECTS = $(RELEASE_OBJDIR)/BMBase.o $(RELEASE_OBJDIR)/BMCRC.o \
-	$(RELEASE_OBJDIR)/BMBuffer.o $(RELEASE_OBJDIR)/BMTick.o \
-	$(RELEASE_OBJDIR)/BMComm.o
+	$(RELEASE_OBJDIR)/BMBuffer.o $(DEBUG_OBJDIR)/BMRingBuffer.o \
+	$(RELEASE_OBJDIR)/BMTick.o $(RELEASE_OBJDIR)/BMComm.o
 
 debug	:	$(DEBUG_TARGET)
 $(DEBUG_TARGET)	:	$(DEBUG_OBJECTS)
@@ -27,6 +27,10 @@ $(DEBUG_OBJDIR)/BMCRC.o	:	BMCRC.c BMCRC.h BMBase.h
 	$(CC) $(DEBUG_CCFLAGS) -o $@ $<
 
 $(DEBUG_OBJDIR)/BMBuffer.o	:	BMBuffer.c BMBuffer.h BMBase.h
+	mkdir -p $(DEBUG_OBJDIR)
+	$(CC) $(DEBUG_CCFLAGS) -o $@ $<
+
+$(DEBUG_OBJDIR)/BMRingBuffer.o	:	BMRingBuffer.c BMRingBuffer.h BMBase.h
 	mkdir -p $(DEBUG_OBJDIR)
 	$(CC) $(DEBUG_CCFLAGS) -o $@ $<
 
@@ -55,6 +59,10 @@ $(RELEASE_OBJDIR)/BMCRC.o	:	BMCRC.c BMCRC.h BMBase.h
 	$(CC) $(RELEASE_CCFLAGS) -o $@ $<
 
 $(RELEASE_OBJDIR)/BMBuffer.o	:	BMBuffer.c BMBuffer.h BMBase.h
+	mkdir -p $(RELEASE_OBJDIR)
+	$(CC) $(RELEASE_CCFLAGS) -o $@ $<
+
+$(RELEASE_OBJDIR)/BMRingBuffer.o	:	BMRingBuffer.c BMRingBuffer.h BMBase.h
 	mkdir -p $(RELEASE_OBJDIR)
 	$(CC) $(RELEASE_CCFLAGS) -o $@ $<
 

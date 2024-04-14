@@ -12,8 +12,8 @@ DEBUG_MAINOBJ = $(DEBUG_OBJDIR)/Test.o
 RELEASE_MAINOBJ = $(RELEASE_OBJDIR)/Test.o
 DEBUG_OBJECTS = $(DEBUG_OBJDIR)/Test.o \
 	$(DEBUG_OBJDIR)/TickUT.o $(DEBUG_OBJDIR)/EvPoolUT.o \
-	$(DEBUG_OBJDIR)/BufferUT.o $(DEBUG_OBJDIR)/CommUT.o
-	
+	$(DEBUG_OBJDIR)/BufferUT.o $(DEBUG_OBJDIR)/CommUT.o	\
+	$(DEBUG_OBJDIR)/RTSignalUT.o $(DEBUG_OBJDIR)/RingBufferUT.o
 
 debug	:	$(DEBUG_TARGET)
 $(DEBUG_TARGET)	:	$(DEBUG_OBJECTS) $(DEBUG_BINDIR)/libBMCOMM.a
@@ -32,6 +32,12 @@ $(DEBUG_OBJDIR)/BufferUT.o	:	BufferUT.c
 	$(CC) $(DEBUG_CC_FLAGS) -o $@ $<
 
 $(DEBUG_OBJDIR)/CommUT.o	:	CommUT.c
+	$(CC) $(DEBUG_CC_FLAGS) -o $@ $<
+
+$(DEBUG_OBJDIR)/RTSignalUT.o	:	RTSignalUT.c
+	$(CC) $(DEBUG_CC_FLAGS) -o $@ $<
+
+$(DEBUG_OBJDIR)/RingBufferUT.o	:	RingBufferUT.c
 	$(CC) $(DEBUG_CC_FLAGS) -o $@ $<
 
 clean_debug	:

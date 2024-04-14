@@ -70,10 +70,13 @@ int CommUT()
             status = BMSTATUS_INVALID;
             BMERR_LOGBREAKEX("Fail in pthread_create() ");
         }
+        // write Tx message
         sleep(1);
         write(comm1.fd, MESSAGE, sizeof(MESSAGE));
+        // break blocked thread by read().
         sleep(1);
         pthread_kill(th, SIGINT);
+        // write Tx message again
         sleep(1);
         write(comm1.fd, MESSAGE, sizeof(MESSAGE));
         while (1);

@@ -1,7 +1,7 @@
 #include "BMBase.h"
 // return the bit number of the 1st zero searching from LSB.
 // The bit in x is set if the bit is zero.
-static int16_t Get1stZero(uint16_t *x, uint16_t count)
+int16_t BMPoolSupport_FindAvailable(uint16_t *x, uint16_t count)
 {
     uint16_t mask = 1;
     int16_t bitnum = -1;
@@ -18,7 +18,6 @@ static int16_t Get1stZero(uint16_t *x, uint16_t count)
 }
 
 #pragma region BMQBase_Impl
-static
 uint16_t BMQBase_NextWrIdx(BMQBase_pt q)
 {
     uint16_t next_wridx = q->wridx + 1;
@@ -29,7 +28,6 @@ uint16_t BMQBase_NextWrIdx(BMQBase_pt q)
     return next_wridx;
 }
 
-static
 uint16_t BMQBase_NextRdIdx(BMQBase_pt q)
 {
     uint16_t next_rdidx = q->rdidx + 1;
@@ -100,7 +98,7 @@ BMEv_pt BMEvPool_Get(BMEvPool_pt evpool)
     BMEv_pt result = NULL;
     pthread_spin_lock(&evpool->lock);
     do {
-        int16_t bitnum = Get1stZero(&evpool->used, evpool->count);
+        int16_t bitnum = BMPoolSupport_FindAvailable(&evpool->used, evpool->count);
         if (bitnum < 0) break;
         result = evpool->ev + bitnum;
     } while (0);    
@@ -126,79 +124,3 @@ BMStatus_t BMEvPool_Return(BMEvPool_pt evpool, BMEv_pt ev)
 }
 
 #pragma endregion BMEvPool_Impl
-
-#pragma region BMRingBuffer_Impl
-static uint16_t BMRingBuffer_Put_(BMRingBuffer_pt rb, const uint8_t* byte)
-{
-    uint16_t next_wridx = BMQBase_NextWrIdx(&rb->qbase);
-    if (next_wridx == rb->qbase.rdidx)
-    {
-        return 0;
-    }
-    rb->bytes[rb->qbase.wridx] = *byte;
-    rb->qbase.wridx = next_wridx;
-    return 1;
-}
-
-static uint16_t BMRingBuffer_Get_(BMRingBuffer_pt rb, uint8_t* byte)
-{
-    uint16_t next_rdidx = BMQBase_NextRdIdx(&rb->qbase);
-    if (rb->qbase.rdidx == rb->qbase.wridx)
-    {
-        return 0;
-    }
-    *byte = rb->bytes[rb->qbase.rdidx];
-    rb->qbase.rdidx = next_rdidx;
-    return 1;
-}
-
-uint16_t BMRingBuffer_Put(BMRingBuffer_pt rb, const uint8_t* byte)
-{
-    pthread_spin_lock(&rb->qbase.lock);
-    uint16_t result = BMRingBuffer_Put_(rb, byte);
-    pthread_spin_unlock(&rb->qbase.lock);
-    return result;
-}
-
-uint16_t BMRingBuffer_Get(BMRingBuffer_pt rb, uint8_t* byte)
-{
-    pthread_spin_lock(&rb->qbase.lock);
-    uint16_t result = BMRingBuffer_Get_(rb, byte);
-    pthread_spin_unlock(&rb->qbase.lock);
-    return result;
-}
-
-uint16_t BMRingBuffer_Puts
-(BMRingBuffer_pt rb, const uint8_t* bytes, uint16_t count)
-{
-    uint16_t result = 0;
-    pthread_spin_lock(&rb->qbase.lock);
-    for (uint16_t i = 0; i < count; i++)
-    {
-        if (!BMRingBuffer_Put_(rb, bytes++))
-        {
-            break;
-        }
-        result++;
-    }
-    pthread_spin_unlock(&rb->qbase.lock);
-    return result;
-}
-
-uint16_t BMRingBuffer_Gets
-(BMRingBuffer_pt rb, uint8_t* bytes, uint16_t count)
-{
-    uint16_t result = 0;
-    pthread_spin_lock(&rb->qbase.lock);
-    for (uint16_t i = 0; i < count; i++)
-    {
-        if (!BMRingBuffer_Get_(rb, bytes++))
-        {
-            break;
-        }
-        result++;
-    }
-    pthread_spin_unlock(&rb->qbase.lock);
-    return result;
-}
-#pragma endregion BMRingBuffer_Impl

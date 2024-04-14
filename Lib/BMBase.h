@@ -74,6 +74,8 @@ typedef struct {
 
 typedef uint16_t    BMId_t;
 
+uint16_t BMQBase_NextWrIdx(BMQBase_pt q);
+uint16_t BMQBase_NextRdIdx(BMQBase_pt q);
 #pragma region Declare_BMEv_t
 /*!
 \brief Declare event type.
@@ -229,100 +231,13 @@ static BMEvPool_t _varname = { _varname ## _ev, _size, 0, 0 }
 
 #pragma endregion Declare_BMEvPool_t
 
-#pragma region Declare_BMRingBuffer_t
 /*!
-\brief ring buffer for byte stream
+\brief find the first available bit number.
+    0 bits in x are available and 1 bits in x are used.
+\param x [in] bit flags showing available or not.
+\param count [in] effective bit count in x. if (count < 16), larger number bits
+    are ineffective.
+\return -1: no available bit found, number >= 0: available bit number
 */
-typedef struct {
-    BMQBase_t qbase;
-    uint8_t* bytes;
-} BMRingBuffer_t, *BMRingBuffer_pt;
-
-/*!
-\brief declare BMRingBuffer_t variable as a local variable.
-\param _varname [in] variable name
-\param _size [in] buffer size in the queue
-*/
-#define BMRingBuffer_DECL(_varname, _size) \
-uint8_t _varname ## _bytes[_size]; \
-BMRingBuffer_t _varname = { BMQBase(_size), _varname ## _bytes }
-
-#define BMRingBuffer_SDECL(_varname, _size) \
-static uint8_t _varname ## _bytes[_size]; \
-static BMRingBuffer_t _varname = { BMQBase(_size), _varname ## _bytes }
-
-#define BMRingBuffer_INIT(_varname) \
-pthread_spin_init(&(_varname.qbase.lock), PTHREAD_PROCESS_PRIVATE)
-
-#define BMRingBuffer_DEINIT(_varname) \
-pthread_spin_destroy(&(_varname.qbase.lock))
-
-#define BMRingBuffer_ADECL(_varname, _size, _count) \
-uint8_t _varname ## _bytes[_size * _count]; \
-BMRingBuffer_t _varname[_count]
-
-#define BMRingBuffer_SADECL(_varname, _size, _count) \
-static uint8_t _varname ## _bytes[_size * _count]; \
-static BMRingBuffer_t _varname[_count]
-
-#define BMRingBuffer_AINIT(_varname) \
-{ \
-    int _count = ARRAYSIZE(_varname); \
-    int _size = ARRAYSIZE(_varname ## _bytes) / _count; \
-    for (int _i = 0; _i < _count; _i++) \
-    { \
-        BMQBase_t _qbase = BMQBase(_size); \
-        memcpy(&(_varname[_i].qbase), &_qbase, sizeof(BMQBase_t)); \
-        _varname[_i].bytes = _varname ## _bytes + _i * _size; \
-        pthread_spin_init(&(_varname[_i].qbase.lock), PTHREAD_PROCESS_PRIVATE); \
-    } \
-}
-
-#define BMRingBuffer_ADEINIT(_varname) \
-{ \
-    int _count = ARRAYSIZE(_varname); \
-    int _size = ARRAYSIZE(_varname ## _bytes) / _count; \
-    for (int _i = 0; _i < _count; _i++) \
-    { \
-        pthread_spin_destroy(&(_varname[_i].qbase.lock)); \
-    } \
-}
-
-/*!
-\brief put a byte to the ring buffer
-\param rb [in,out] ring buffer object
-\param byte [in] pointer to the byte to put
-\return number of byte which has been appended; i.e. 0 or 1
-*/
-uint16_t BMRingBuffer_Put(BMRingBuffer_pt rb, const uint8_t* byte);
-
-/*!
-\brief get a byte from the ring buffer
-\param rb [in,out] ring buffer object
-\param byte [out] byte buffer to retrieve a byte into
-\return number of byte which has been retrieved; i.e. 0 or 1
-*/
-uint16_t BMRingBuffer_Get(BMRingBuffer_pt rb, uint8_t* byte);
-
-/*!
-\brief put bytes to the ring buffer
-\param rb [in,out] ring buffer object
-\param bytes [in] pointer to the bytes to put
-\param count [in] size of bytes
-\return number of byte which has been appended; i.e. 0..count
-*/
-uint16_t BMRingBuffer_Puts
-(BMRingBuffer_pt rb, const uint8_t* bytes, uint16_t count);
-
-/*!
-\brief get bytes from the ring buffer
-\param rb [in,out] ring buffer object
-\param bytes [in] pointer to the byte buffer to retrieve bytes into
-\param count [in] size of bytes
-\return number of byte which has been appended; i.e. 0..count
-*/
-uint16_t BMRingBuffer_Gets
-(BMRingBuffer_pt rb, uint8_t* bytes, uint16_t count);
-#pragma endregion Declare_BMRingBuffer_t
-
+int16_t BMPoolSupport_FindAvailable(uint16_t *x, uint16_t count);
 #endif /* BMBASE_H */

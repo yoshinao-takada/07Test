@@ -1,0 +1,12 @@
+@startuml
+start
+repeat
+    if (RB empty) then(yes)
+        :pause;
+    else
+        :get chars;
+        :write;
+    endif
+repeat while (cont?)
+end
+@enduml

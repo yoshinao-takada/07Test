@@ -3,6 +3,7 @@
         "limits": "c",
         "*.tcc": "c",
         "bmcomm.h": "c",
-        "bmbase.h": "c"
+        "bmbase.h": "c",
+        "bmringbuffer.h": "c"
     }
 }
