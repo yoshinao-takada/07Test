@@ -3,41 +3,41 @@
 #pragma region BMRingBuffer_Impl
 static uint16_t BMRingBuffer_Put_(BMRingBuffer_pt rb, const uint8_t* byte)
 {
-    uint16_t next_wridx = BMQBase_NextWrIdx(&rb->qbase);
-    if (next_wridx == rb->qbase.rdidx)
+    uint16_t next_wridx = BMQBase_NextWrIdx(&rb->base);
+    if (next_wridx == rb->base.rdidx)
     {
         return 0;
     }
-    rb->bytes[rb->qbase.wridx] = *byte;
-    rb->qbase.wridx = next_wridx;
+    rb->bytes[rb->base.wridx] = *byte;
+    rb->base.wridx = next_wridx;
     return 1;
 }
 
 static uint16_t BMRingBuffer_Get_(BMRingBuffer_pt rb, uint8_t* byte)
 {
-    uint16_t next_rdidx = BMQBase_NextRdIdx(&rb->qbase);
-    if (rb->qbase.rdidx == rb->qbase.wridx)
+    uint16_t next_rdidx = BMQBase_NextRdIdx(&rb->base);
+    if (rb->base.rdidx == rb->base.wridx)
     {
         return 0;
     }
-    *byte = rb->bytes[rb->qbase.rdidx];
-    rb->qbase.rdidx = next_rdidx;
+    *byte = rb->bytes[rb->base.rdidx];
+    rb->base.rdidx = next_rdidx;
     return 1;
 }
 
 uint16_t BMRingBuffer_Put(BMRingBuffer_pt rb, const uint8_t* byte)
 {
-    pthread_spin_lock(&rb->qbase.lock);
+    pthread_spin_lock(&rb->base.lock);
     uint16_t result = BMRingBuffer_Put_(rb, byte);
-    pthread_spin_unlock(&rb->qbase.lock);
+    pthread_spin_unlock(&rb->base.lock);
     return result;
 }
 
 uint16_t BMRingBuffer_Get(BMRingBuffer_pt rb, uint8_t* byte)
 {
-    pthread_spin_lock(&rb->qbase.lock);
+    pthread_spin_lock(&rb->base.lock);
     uint16_t result = BMRingBuffer_Get_(rb, byte);
-    pthread_spin_unlock(&rb->qbase.lock);
+    pthread_spin_unlock(&rb->base.lock);
     return result;
 }
 
@@ -45,7 +45,7 @@ uint16_t BMRingBuffer_Puts
 (BMRingBuffer_pt rb, const uint8_t* bytes, uint16_t count)
 {
     uint16_t result = 0;
-    pthread_spin_lock(&rb->qbase.lock);
+    pthread_spin_lock(&rb->base.lock);
     for (uint16_t i = 0; i < count; i++)
     {
         if (!BMRingBuffer_Put_(rb, bytes++))
@@ -54,7 +54,7 @@ uint16_t BMRingBuffer_Puts
         }
         result++;
     }
-    pthread_spin_unlock(&rb->qbase.lock);
+    pthread_spin_unlock(&rb->base.lock);
     return result;
 }
 
@@ -62,7 +62,7 @@ uint16_t BMRingBuffer_Gets
 (BMRingBuffer_pt rb, uint8_t* bytes, uint16_t count)
 {
     uint16_t result = 0;
-    pthread_spin_lock(&rb->qbase.lock);
+    pthread_spin_lock(&rb->base.lock);
     for (uint16_t i = 0; i < count; i++)
     {
         if (!BMRingBuffer_Get_(rb, bytes++))
@@ -71,7 +71,7 @@ uint16_t BMRingBuffer_Gets
         }
         result++;
     }
-    pthread_spin_unlock(&rb->qbase.lock);
+    pthread_spin_unlock(&rb->base.lock);
     return result;
 }
 #pragma endregion BMRingBuffer_Impl
@@ -95,42 +95,52 @@ BMRingBuffer_pt BMRingBufferPool_Get(BMRingBufferPool_pt pool)
 BMStatus_t BMRingBufferPool_Return
 (BMRingBufferPool_pt pool, BMRingBuffer_pt buffer)
 {
-    BMStatus_t status = BMSTATUS_SUCCESS;
+    BMStatus_t status = BMSTATUS_INVALID;
     pthread_spin_lock(&pool->lock);
     uint16_t ptr_offset = buffer - (pool->buffers);
-    if (ptr_offset < pool->size)
+    uint16_t clear_bit = (1 << ptr_offset);
+    if ((ptr_offset < pool->size) && ((clear_bit & pool->used) != 0))
     {
-        buffer->qbase.rdidx = buffer->qbase.wridx = 0;
-        pool->used &= ~(1 << ptr_offset);
+        buffer->base.rdidx = buffer->base.wridx = 0;
+        pool->used &= ~clear_bit;
         status = BMSTATUS_SUCCESS;
     }
     pthread_spin_unlock(&pool->lock);
     return status;
 }
 
-BMRingBufferPool_SDECL(LongRingBuffer,
+BMRingBufferPool_SDECL(LongRingBuffers,
     BMRINGBUFFERPOOL_LONGBUFFERCOUNT, BMRINGBUFFERPOOL_LONGBUFFERSIZE);
-BMRingBufferPool_SDECL(ShortRingBuffer,
+BMRingBufferPool_SDECL(ShortRingBuffers,
     BMRINGBUFFERPOOL_SHORTBUFFERCOUNT, BMRINGBUFFERPOOL_SHORTBUFFERSIZE);
 
 BMRingBuffer_pt BMRingBufferPool_SGet(BMRingBufferPoolType_t type)
 {
     return (type == BMRingBufferPoolType_SHORT) ?
-        BMRingBufferPool_Get(&ShortRingBuffer) :
-        BMRingBufferPool_Get(&LongRingBuffer);
+        BMRingBufferPool_Get(&ShortRingBuffers) :
+        BMRingBufferPool_Get(&LongRingBuffers);
 }
 
 BMStatus_t BMRingBufferPool_SReturn(BMRingBuffer_pt rb)
 {
-    return (rb->qbase.count == BMRINGBUFFERPOOL_SHORTBUFFERSIZE) ?
-        BMRingBufferPool_Return(&ShortRingBuffer, rb) :
+    return (rb->base.count == BMRINGBUFFERPOOL_SHORTBUFFERSIZE) ?
+        BMRingBufferPool_Return(&ShortRingBuffers, rb) :
         (
-            (rb->qbase.count == BMRINGBUFFERPOOL_LONGBUFFERSIZE) ?
-                BMRingBufferPool_Return(&LongRingBuffer, rb):
+            (rb->base.count == BMRINGBUFFERPOOL_LONGBUFFERSIZE) ?
+                BMRingBufferPool_Return(&LongRingBuffers, rb):
                 BMSTATUS_INVALID
         );
 }
-void BMRingBufferPool_SInit();
-void BMRingBufferPool_SDeinit();
+void BMRingBufferPool_SInit()
+{
+    BMRingBufferPool_INIT(ShortRingBuffers);
+    BMRingBufferPool_INIT(LongRingBuffers);
+}
+
+void BMRingBufferPool_SDeinit()
+{
+    BMRingBufferPool_DEINIT(ShortRingBuffers);
+    BMRingBufferPool_DEINIT(LongRingBuffers);
+}
 
 #pragma endregion BMRingBufferPool_Impl

@@ -19,7 +19,7 @@
 \brief ring buffer for byte stream
 */
 typedef struct {
-    BMQBase_t qbase;
+    BMQBase_t base;
     uint8_t* bytes;
 } BMRingBuffer_t, *BMRingBuffer_pt;
 
@@ -37,10 +37,10 @@ static uint8_t _varname ## _bytes[_size]; \
 static BMRingBuffer_t _varname = { BMQBase(_size), _varname ## _bytes }
 
 #define BMRingBuffer_INIT(_varname) \
-pthread_spin_init(&(_varname.qbase.lock), PTHREAD_PROCESS_PRIVATE)
+pthread_spin_init(&(_varname.base.lock), PTHREAD_PROCESS_PRIVATE)
 
 #define BMRingBuffer_DEINIT(_varname) \
-pthread_spin_destroy(&(_varname.qbase.lock))
+pthread_spin_destroy(&(_varname.base.lock))
 
 #define BMRingBuffer_ADECL(_varname, _size, _count) \
 uint8_t _varname ## _bytes[_size * _count]; \
@@ -57,9 +57,9 @@ static BMRingBuffer_t _varname[_count]
     for (int _i = 0; _i < _count; _i++) \
     { \
         BMQBase_t _qbase = BMQBase(_size); \
-        memcpy(&(_varname[_i].qbase), &_qbase, sizeof(BMQBase_t)); \
+        memcpy(&(_varname[_i].base), &_qbase, sizeof(BMQBase_t)); \
         _varname[_i].bytes = _varname ## _bytes + _i * _size; \
-        pthread_spin_init(&(_varname[_i].qbase.lock), PTHREAD_PROCESS_PRIVATE); \
+        pthread_spin_init(&(_varname[_i].base.lock), PTHREAD_PROCESS_PRIVATE); \
     } \
 }
 
@@ -69,7 +69,7 @@ static BMRingBuffer_t _varname[_count]
     int _size = ARRAYSIZE(_varname ## _bytes) / _count; \
     for (int _i = 0; _i < _count; _i++) \
     { \
-        pthread_spin_destroy(&(_varname[_i].qbase.lock)); \
+        pthread_spin_destroy(&(_varname[_i].base.lock)); \
     } \
 }
 
@@ -136,7 +136,7 @@ typedef struct {
     uint16_t _bufsize = _varname.buffers[0].base.count; \
     BMQBase_t _qbase = BMQBase(_bufsize); \
     uint8_t* body = _varname ## _bufferbody; \
-    BMRingBuffer_pt _buffers = _varname->buffers; \
+    BMRingBuffer_pt _buffers = _varname.buffers; \
     /* init pool's lock object */ \
     pthread_spin_init(&_varname.lock, PTHREAD_PROCESS_PRIVATE); \
     for (uint16_t _i = 0; _i < _varname.size; _i++, _buffers++) { \
@@ -148,7 +148,7 @@ typedef struct {
 }
 
 #define BMRingBufferPool_DEINIT(_varname) { \
-    BMRingBuffer_pt _buffers = _varname->buffers; \
+    BMRingBuffer_pt _buffers = _varname.buffers; \
     pthread_spin_destroy(&_varname.lock); \
     for (uint16_t _i = 0; _i < _varname.size; _i++, _buffers++) { \
         pthread_spin_destroy(&_buffers->base.lock); \

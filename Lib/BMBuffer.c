@@ -69,10 +69,11 @@ BMStatus_t BMBufferPool_Return(BMBufferPool_pt pool, BMBuffer_pt buffer)
     BMStatus_t status = BMSTATUS_INVALID;
     pthread_spin_lock(&pool->lock);
     uint16_t ptr_offset = buffer - (pool->buffers);
-    if (ptr_offset < pool->size)
+    uint16_t clear_bit = (1 << ptr_offset);
+    if ((ptr_offset < pool->size) && ((clear_bit & pool->used) != 0))
     {
         buffer->filled = buffer->crunched = 0;
-        pool->used &= ~(1 << ptr_offset);
+        pool->used &= ~clear_bit;
         status = BMSTATUS_SUCCESS;
     }
     pthread_spin_unlock(&pool->lock);
