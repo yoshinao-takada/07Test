@@ -86,9 +86,73 @@ BMStatus_t CheckGlobalRingBufferPool()
     BMRingBuffer_pt buffers[RBBUFFERSIZE];
     do {
         int i = 0;
+#pragma region
         for (; 
             buffers[i] = 
             BMRingBufferPool_SGet(BMRingBufferPoolType_LONG); i++);
+        if (i != BMRINGBUFFERPOOL_LONGBUFFERCOUNT)
+        {
+            BMERR_LOGBREAKEX("Fail in BMRingBufferPool_SGet()");
+        }
+        do {
+            --i;
+            if (BMSTATUS_SUCCESS !=
+                BMRingBufferPool_SReturn(buffers[i]))
+            {
+                BMERR_LOGBREAKEX("Fail in BMRingBufferPool_SReturn()");
+            }
+        } while (i);
+        i = 0;
+        for (; 
+            buffers[i] = 
+            BMRingBufferPool_SGet(BMRingBufferPoolType_LONG); i++);
+        if (i != BMRINGBUFFERPOOL_LONGBUFFERCOUNT)
+        {
+            BMERR_LOGBREAKEX("Fail in BMRingBufferPool_SGet()");
+        }
+        do {
+            --i;
+            if (BMSTATUS_SUCCESS !=
+                BMRingBufferPool_SReturn(buffers[i]))
+            {
+                BMERR_LOGBREAKEX("Fail in BMRingBufferPool_SReturn()");
+            }
+        } while (i);
+#pragma endregion
+
+#pragma region
+        for (; 
+            buffers[i] = 
+            BMRingBufferPool_SGet(BMRingBufferPoolType_SHORT); i++);
+        if (i != BMRINGBUFFERPOOL_SHORTBUFFERCOUNT)
+        {
+            BMERR_LOGBREAKEX("Fail in BMRingBufferPool_SGet()");
+        }
+        do {
+            --i;
+            if (BMSTATUS_SUCCESS !=
+                BMRingBufferPool_SReturn(buffers[i]))
+            {
+                BMERR_LOGBREAKEX("Fail in BMRingBufferPool_SReturn()");
+            }
+        } while (i);
+        i = 0;
+        for (; 
+            buffers[i] = 
+            BMRingBufferPool_SGet(BMRingBufferPoolType_SHORT); i++);
+        if (i != BMRINGBUFFERPOOL_SHORTBUFFERCOUNT)
+        {
+            BMERR_LOGBREAKEX("Fail in BMRingBufferPool_SGet()");
+        }
+        do {
+            --i;
+            if (BMSTATUS_SUCCESS !=
+                BMRingBufferPool_SReturn(buffers[i]))
+            {
+                BMERR_LOGBREAKEX("Fail in BMRingBufferPool_SReturn()");
+            }
+        } while (i);
+#pragma endregion
     } while (0);
     BMEND_FUNCEX(status);
     return status;
