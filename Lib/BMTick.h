@@ -39,10 +39,21 @@ _varname = { _size, _varname_dispatchers[_size], &(_varname_Q), };
     BMDispatchers_t _varname = \
         { _size, _varname ## _dispatchers, &(_varname ## _Q) };
 
+#define BMDispatchers_SDECL(_varname, _size) \
+    BMEvQ_SDECL(_varname ## _Q, BMDISPATCHERS_QUEUESIZE); \
+    static BMDispatcher_t _varname ## _dispatchers[_size]; \
+    static BMDispatchers_t _varname = \
+        { _size, _varname ## _dispatchers, &(_varname ## _Q) };
+
 #define BMDispatchers_INIT(_varname) BMEvQ_INIT(_varname ## _Q)
 
 #define BMDispatchers_DEINIT(_varname) BMDispatchers_Clear(&(_varname)); \
     BMEvQ_DEINIT(_varname ## _Q)
+
+void BMDispatchers_SInit(uint16_t tickPeriod);
+
+void BMDispatchers_SDeinit();
+
 /*!
 \brief clear all the elements in dispatchers.
 */
@@ -76,6 +87,8 @@ BMStatus_t BMSystick_Deinit();
 /*!
 \brief Get current interval timer setting.
 */
-void BMSystick_GetInterval(struct timeval* interval);
+const struct timeval* BMSystick_GetInterval();
+
+double BMSystick_GetIntervalDouble();
 #pragma endregion SYSTICK_TIMER
 #endif /* BMTICK_H */

@@ -73,6 +73,8 @@ static BMRingBuffer_t _varname[_count]
     } \
 }
 
+#define BMRingBuffer_ISEMPTY(_varptr) \
+    (_varptr->base.wridx == _varptr->base.rdidx)
 /*!
 \brief put a byte to the ring buffer
 \param rb [in,out] ring buffer object

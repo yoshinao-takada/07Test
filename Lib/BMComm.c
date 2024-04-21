@@ -1,4 +1,7 @@
 #include "BMComm.h"
+#include <sys/param.h>
+#include <math.h>
+
 #pragma region BAUDRATE_UTILITY
 static const int BAUD_MAP[9][2] =
 {
@@ -142,6 +145,12 @@ BMStatus_t BMCommCtx_Init
         ctx->txctx.wrproh = ctx->rxctx.base.wrproh = &ctx->wrproh;
 
         // init buffers
+        ctx->rxctx.base.buffer = BMBufferPool_SGet(BMBufferPoolType_SHORT);
+        ctx->txctx.buffer = BMBufferPool_SGet(BMBufferPoolType_SHORT);
+        ctx->rxctx.base.rb = BMRingBufferPool_SGet(BMRingBufferPoolType_SHORT);
+        ctx->txctx.rb = BMRingBufferPool_SGet(BMRingBufferPoolType_SHORT);
+
+        // init one-shot timer
 
     } while (0);
     return status;
@@ -150,9 +159,37 @@ BMStatus_t BMCommCtx_Init
 void* BMComm_RxTh(void* ctx)
 {
     BMCommRxThCtx_pt ctx_ = (BMCommRxThCtx_pt)ctx;
+    BMCommThCtx_pt ctxbase = (BMCommThCtx_pt)&ctx_->base;
+    double tickInterval = BMSystick_GetIntervalDouble();
+    int waitByteCount = 2 * BMBUFFERPOOL_SHORTBUFFERSIZE;
+    double waitTime = waitByteCount * ctxbase->base.secPerByte;
+    int wrprohIni = MAX((int)ceil(waitTime / tickInterval), 1);
+    ssize_t readResult = -1;
     while (ctx_->base.cont)
     {
-
+        // prohibit tx and start 1-shot delay
+        pthread_spin_lock(ctxbase->wrproh);
+        ctx_->oneshot->count = wrprohIni;
+        readResult = read(ctxbase->base.fd, ctxbase->buffer->buf,
+            ctxbase->buffer->size);
+        if (readResult < 0) continue; // sth invalid occured.
+        else if (readResult > 0)
+        { // read success
+            uint16_t rbappended = 
+                BMRingBuffer_Puts(ctxbase->rb, ctxbase->buffer->buf, 
+                    (uint16_t)readResult);
+            if (rbappended != (uint16_t)readResult)
+            {
+                printf("RingBuffer overflow @ %s,%s,%d\n",
+                    __FILE__, __FUNCTION__, __LINE__);
+                // clear ringbuffer
+                ctxbase->rb->base.rdidx = ctxbase->rb->base.wridx = 0;
+            }
+            else if (ctxbase->ev.listeners == 0)
+            { // send an event to PHY FSM if no error && event is available
+                BMEvQ_Put(ctxbase->evq, &ctxbase->ev);
+            }
+        }
     }
     return ctx;
 }
@@ -162,7 +199,25 @@ void* BMComm_TxTh(void* ctx)
     BMCommThCtx_pt ctx_ = (BMCommThCtx_pt)ctx;
     while (ctx_->cont)
     {
-
+        if (BMRingBuffer_ISEMPTY(ctx_->rb))
+        {
+            pause();
+        }
+        ctx_->buffer->filled = BMRingBuffer_Gets(
+            ctx_->rb, ctx_->buffer->buf, ctx_->buffer->size);
+        uint16_t remaining = ctx_->buffer->filled;
+        while (remaining)
+        {
+            ssize_t written = write(ctx_->base.fd,
+                ctx_->buffer->buf + ctx_->buffer->crunched, remaining);
+            if (written > 0)
+            {
+                remaining -= written;
+                ctx_->buffer->crunched += written;
+            }
+        }
+        ctx_->buffer->filled = ctx_->buffer->crunched = 0;
     }
     return ctx;
 }
+

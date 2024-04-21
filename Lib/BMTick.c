@@ -110,6 +110,19 @@ BMStatus_t BMDispatchers_CrunchEvent(BMDispatchers_pt dispatchers)
     return status;
 }
 
+BMDispatchers_SDECL(sdisps, 4);
+
+void BMDispatchers_SInit(uint16_t tickPeriod)
+{
+    BMDispatchers_INIT(sdisps);
+    BMSystick_Init(sdisps.q, BMTICK_MIN_PERIOD);
+}
+
+void BMDispatchers_SDeinit()
+{
+    BMDispatchers_DEINIT(sdisps);
+}
+
 static BMEv_t ev = { BMEVID_TICK, 0, NULL };
 
 static BMEvQ_pt dispatcher_queue;
@@ -191,7 +204,12 @@ BMStatus_t BMSystick_Deinit()
     return status;
 }
 
-void BMSystick_GetInterval(struct timeval* interval)
+const struct timeval* BMSystick_GetInterval()
 {
-    interval = &itnew.it_interval;
+    return &itnew.it_interval;
+}
+
+double BMSystick_GetIntervalDouble()
+{
+    return 1.0e-6 * BMSystick_GetInterval()->tv_usec;
 }
