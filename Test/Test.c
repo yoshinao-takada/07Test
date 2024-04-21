@@ -3,6 +3,7 @@
 #include <strings.h>
 
 int TickUT();
+int STickUT();
 int EvPoolUT();
 int BufferUT();
 int CommUT();
@@ -17,6 +18,7 @@ int HasSth(int argc, const char* argv[], const char* sth)
 }
 
 #define DO_TICKUT(_argc, _argv) HasSth(_argc, _argv, "tick")
+#define DO_STICKUT(_argc, _argv) HasSth(_argc, _argv, "stick")
 #define DO_SVR(_argc, _argv) HasSth(_argc, _argv, "svr")
 #define DO_CLI(_argc, _argv) HasSth(_argc, _argv, "cli")
 #define DO_COMM(_argc, _argv) HasSth(_argc, _argv, "comm")
@@ -32,6 +34,12 @@ int main(int argc, const char* argv[])
         {
             BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
                 "Fail in TickUT() = %d", err);
+        }
+        else if (DO_STICKUT(argc, argv) && 
+            (EXIT_SUCCESS != (err = STickUT())))
+        {
+            BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
+                "Fail in STickUT() = %d", err);
         }
         /*
         else if (DO_SVR(argc, argv) && EXIT_SUCCESS !=(err = Svr()))
@@ -55,6 +63,7 @@ int main(int argc, const char* argv[])
         // if it did one of special tests, it terminates the program.
         if (
             DO_TICKUT(argc, argv) || 
+            DO_STICKUT(argc, argv) || 
             DO_SVR(argc, argv) || 
             DO_CLI(argc, argv) ||
             DO_COMM(argc, argv) ||

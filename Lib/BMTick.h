@@ -3,6 +3,7 @@
 #include "BMBase.h"
 // minimum time tick period in milliseconds
 #define BMTICK_MIN_PERIOD   10
+#define BMDISPATCHERS_STATIC_SIZE   4
 
 #pragma region DISPATCHERS
 typedef struct {
@@ -53,6 +54,10 @@ _varname = { _size, _varname_dispatchers[_size], &(_varname_Q), };
 void BMDispatchers_SInit(uint16_t tickPeriod);
 
 void BMDispatchers_SDeinit();
+
+BMStatus_t BMDispatchers_SCrunchEvent();
+
+BMDispatcher_pt BMDispatchers_Get(uint16_t index);
 
 /*!
 \brief clear all the elements in dispatchers.
