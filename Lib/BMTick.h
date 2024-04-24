@@ -57,7 +57,7 @@ void BMDispatchers_SDeinit();
 
 BMStatus_t BMDispatchers_SCrunchEvent();
 
-BMDispatcher_pt BMDispatchers_Get(uint16_t index);
+BMDispatcher_pt BMDispatchers_SGet(uint16_t index);
 
 /*!
 \brief clear all the elements in dispatchers.

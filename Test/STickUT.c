@@ -41,7 +41,7 @@ int STickUT()
     do {
         for (uint16_t i = 0; i < BMDISPATCHERS_STATIC_SIZE; i++)
         {
-            BMDispatcher_pt disp = BMDispatchers_Get(i);
+            BMDispatcher_pt disp = BMDispatchers_SGet(i);
             disp->count = disp->init = INTERVALS[i];
             disp->param = _i + i;
             disp->handler = hdlrs[i];

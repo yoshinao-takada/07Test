@@ -4,6 +4,7 @@
         "*.tcc": "c",
         "bmcomm.h": "c",
         "bmbase.h": "c",
-        "bmringbuffer.h": "c"
+        "bmringbuffer.h": "c",
+        "bmevid.h": "c"
     }
 }

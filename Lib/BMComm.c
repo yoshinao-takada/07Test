@@ -193,6 +193,38 @@ void* BMComm_RxTh(void* ctx)
     }
     return ctx;
 }
+BMStatus_t BMCommThCtx_Init(BMCommThCtx_pt ctx, BMComm_cpt comm,
+    pthread_spinlock_t* wrproh, BMEvQ_pt evq)
+{
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    do {
+        memcpy(&ctx->base, comm, sizeof(BMComm_t));
+        ctx->wrproh = wrproh;
+        ctx->evq = evq;
+        ctx->buffer = BMBufferPool_SGet(BMBufferPoolType_SHORT);
+        ctx->rb = BMRingBufferPool_SGet(BMRingBufferPoolType_SHORT);
+        ctx->ev.listeners = 0;
+        ctx->ev.param = ctx->rb;
+        ctx->ev.id = BMEVID_RBEMPTY;
+    } while (0);
+    return status;
+}
+
+BMStatus_t BMCommRxThCtx_Init(BMCommRxThCtx_pt ctx, BMComm_cpt comm,
+    pthread_spinlock_t* wrproh, BMEvQ_pt evq, BMDispatcher_pt oneshot)
+{
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    do {
+        status = BMCommThCtx_Init(&ctx->base, comm, wrproh, evq);
+        if (BMSTATUS_SUCCESS != status)
+        {
+            break;
+        }
+        ctx->oneshot = oneshot;
+    } while (0);
+    return status;
+}
+    
 
 void* BMComm_TxTh(void* ctx)
 {

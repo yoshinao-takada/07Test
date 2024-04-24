@@ -2,6 +2,7 @@
 start
 repeat
     if (RB empty) then(yes)
+        :Notify RB-empty\nto PHY FSM;
         :pause;
     else
         :get chars;

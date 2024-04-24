@@ -128,7 +128,7 @@ BMStatus_t BMDispatchers_SCrunchEvent()
     return BMDispatchers_CrunchEvent(&sdisps);
 }
 
-BMDispatcher_pt BMDispatchers_Get(uint16_t index)
+BMDispatcher_pt BMDispatchers_SGet(uint16_t index)
 {
     return (index < sdisps.count) ? sdisps.dispatchers + index : NULL;
 }

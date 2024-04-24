@@ -89,7 +89,12 @@ typedef struct {
     BMDispatcher_pt oneshot; // 1-shot delay timer to prohibit write operation
 } BMCommRxThCtx_t, *BMCommRxThCtx_pt;
 
+BMStatus_t BMCommThCtx_Init(BMCommThCtx_pt ctx, BMComm_cpt comm,
+    pthread_spinlock_t* wrproh, BMEvQ_pt evq);
 
+BMStatus_t BMCommRxThCtx_Init(BMCommRxThCtx_pt ctx, BMComm_cpt comm,
+    pthread_spinlock_t* wrproh, BMEvQ_pt evq, BMDispatcher_pt oneshot);
+    
 /*!
 \brief Rx thread function
 */
