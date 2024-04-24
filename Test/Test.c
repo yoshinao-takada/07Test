@@ -9,6 +9,7 @@ int BufferUT();
 int CommUT();
 int RTSignalUT();
 int RingBufferUT();
+int CommThUT();
 
 int HasSth(int argc, const char* argv[], const char* sth)
 {
@@ -23,6 +24,7 @@ int HasSth(int argc, const char* argv[], const char* sth)
 #define DO_CLI(_argc, _argv) HasSth(_argc, _argv, "cli")
 #define DO_COMM(_argc, _argv) HasSth(_argc, _argv, "comm")
 #define DO_RTSIG(_argc, _argv) HasSth(_argc, _argv, "rtsig")
+#define DO_COMMTH(_argc, _argv) HasSth(_argc, _argv, "commth")
 
 
 int main(int argc, const char* argv[])
@@ -55,6 +57,10 @@ int main(int argc, const char* argv[])
         {
             BMERR_LOGBREAKEX("Fail in Comm() = %d", err);
         }
+        else if (DO_COMMTH(argc, argv) && EXIT_SUCCESS != (err = CommThUT()))
+        {
+            BMERR_LOGBREAKEX("Fail in CommTh() = %d", err);
+        }
         else if (DO_RTSIG(argc, argv) &&
                 (EXIT_SUCCESS != (err = RTSignalUT())))
         {
@@ -67,6 +73,7 @@ int main(int argc, const char* argv[])
             DO_SVR(argc, argv) || 
             DO_CLI(argc, argv) ||
             DO_COMM(argc, argv) ||
+            DO_COMMTH(argc, argv) ||
             DO_RTSIG(argc, argv)) break;
 
         // beginning of general tests
