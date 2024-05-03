@@ -75,7 +75,8 @@ typedef struct {
     BMComm_t base; // serialport descriptor
     void* (*thstart)(void*); // thread function
     pthread_t th; // thread
-    pthread_spinlock_t* wrproh; // write prohibit
+    pthread_mutex_t* wrproh; // write prohibit
+    pthread_mutex_t* rbblock; // blocked by rb status
     int cont; // flag to continue to thread main loop
     BMEvQ_pt evq; // event queue of PHY FSM
     BMEv_t ev; // event real body sent to PHY FSM
@@ -90,10 +91,11 @@ typedef struct {
 } BMCommRxThCtx_t, *BMCommRxThCtx_pt;
 
 BMStatus_t BMCommThCtx_Init(BMCommThCtx_pt ctx, BMComm_cpt comm,
-    pthread_spinlock_t* wrproh, BMEvQ_pt evq);
+    pthread_mutex_t* wrproh, pthread_mutex_t* rbblock, BMEvQ_pt evq);
 
 BMStatus_t BMCommRxThCtx_Init(BMCommRxThCtx_pt ctx, BMComm_cpt comm,
-    pthread_spinlock_t* wrproh, BMEvQ_pt evq, BMDispatcher_pt oneshot);
+    pthread_mutex_t* wrproh, pthread_mutex_t* rbblock, BMEvQ_pt evq,
+    BMDispatcher_pt oneshot);
     
 /*!
 \brief Rx thread function
@@ -109,7 +111,8 @@ void* BMComm_TxTh(void* ctx);
 typedef struct {
     BMCommRxThCtx_t rxctx;
     BMCommThCtx_t txctx;
-    pthread_spinlock_t wrproh;
+    pthread_mutex_t wrproh;
+    pthread_mutex_t rbblock; // locked during Tx RB being empty.
     BMEvQ_pt dllQ; // datalink layer input queue
 } BMCommCtx_t, *BMCommCtx_pt;
 

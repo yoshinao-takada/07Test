@@ -1,5 +1,6 @@
 #include "BMComm.h"
 #include <signal.h>
+#include <sys/param.h>
 
 #define COMMUT_BUFSIZE 32
 static BMComm_t
@@ -56,7 +57,7 @@ BMStatus_t RegSigAction()
 int CommUT()
 {
     static const uint8_t MESSAGE[] = "message0";
-    BMStatus_t status = BMSTATUS_SUCCESS;
+    BMStatus_t status = BMSTATUS_SUCCESS, status2 = BMSTATUS_SUCCESS;
     pthread_t th;
     do {
         if (status = RegSigAction())
@@ -64,7 +65,12 @@ int CommUT()
             BMERR_LOGBREAKEX("RegSigAction() ");
         }
         status = BMComm_Open(&conf0, &comm0);
-        status = BMComm_Open(&conf1, &comm1);
+        status2 = BMComm_Open(&conf1, &comm1);
+        if (status || status2)
+        {
+            status = MAX(status, status2);
+            BMERR_LOGBREAKEX("Fail in BMComm_Open()");
+        }
         if (pthread_create(&th, NULL, ReadThread, &comm0))
         {
             status = BMSTATUS_INVALID;
@@ -79,7 +85,6 @@ int CommUT()
         // write Tx message again
         sleep(1);
         write(comm1.fd, MESSAGE, sizeof(MESSAGE));
-        while (1);
     } while (0);
     BMComm_Close(&comm0);
     BMComm_Close(&comm1);

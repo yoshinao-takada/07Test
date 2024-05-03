@@ -123,4 +123,41 @@ BMStatus_t BMEvPool_Return(BMEvPool_pt evpool, BMEv_pt ev)
     return BMSTATUS_SUCCESS;
 }
 
+BMEvQ_SADECL(sevqpool, BMEVQPOOL_QSIZE, BMEVQPOOL_QCOUINT);
+static uint16_t sevqpool_used = 0;
+
+void BMEvQPool_SInit() 
+{
+    BMEvQ_AINIT(sevqpool);
+}
+
+void BMEvQPool_SDeinit()
+{
+    BMEvQ_ADEINIT(sevqpool);
+}
+
+BMEvQ_pt BMEvQPool_SGet()
+{
+    uint16_t qcount = ARRAYSIZE(sevqpool);
+    int16_t idx = BMPoolSupport_FindAvailable(&sevqpool_used, qcount);
+    return (idx < 0) ? NULL : sevqpool + idx;
+}
+
+BMStatus_t BMEvQPool_SReturn(BMEvQ_pt q)
+{
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    ptrdiff_t offset = q - sevqpool;
+    uint16_t offset_bit = (1 << offset);
+    uint16_t qcount = ARRAYSIZE(sevqpool);
+    if (((uint16_t)offset < qcount) && 
+        ((sevqpool_used & offset_bit) != 0))
+    {
+        sevqpool_used &= ~(1 << offset);
+    }
+    else
+    {
+        status = BMSTATUS_INVALID;
+    }
+    return status;
+}
 #pragma endregion BMEvPool_Impl

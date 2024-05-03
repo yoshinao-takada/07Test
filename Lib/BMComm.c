@@ -137,12 +137,13 @@ BMStatus_t BMCommCtx_Init
         memcpy(&ctx->txctx.base, comm, sizeof(BMComm_t));
 
         // init write prohibit
-        if (pthread_spin_init(&ctx->wrproh, PTHREAD_PROCESS_PRIVATE))
         {
-            status = BMSTATUS_INVALID;
-            break;
+            pthread_mutex_t mtxtemp = PTHREAD_MUTEX_INITIALIZER;
+            memcpy(&ctx->wrproh, &mtxtemp, sizeof(pthread_mutex_t));
+            memcpy(&ctx->rbblock, &mtxtemp, sizeof(pthread_mutex_t));
         }
         ctx->txctx.wrproh = ctx->rxctx.base.wrproh = &ctx->wrproh;
+        ctx->txctx.rbblock = ctx->rxctx.base.rbblock = &ctx->rbblock;
 
         // init buffers
         ctx->rxctx.base.buffer = BMBufferPool_SGet(BMBufferPoolType_SHORT);
@@ -168,7 +169,7 @@ void* BMComm_RxTh(void* ctx)
     while (ctx_->base.cont)
     {
         // prohibit tx and start 1-shot delay
-        pthread_spin_lock(ctxbase->wrproh);
+        pthread_mutex_lock(ctxbase->wrproh);
         ctx_->oneshot->count = wrprohIni;
         readResult = read(ctxbase->base.fd, ctxbase->buffer->buf,
             ctxbase->buffer->size);
@@ -194,28 +195,31 @@ void* BMComm_RxTh(void* ctx)
     return ctx;
 }
 BMStatus_t BMCommThCtx_Init(BMCommThCtx_pt ctx, BMComm_cpt comm,
-    pthread_spinlock_t* wrproh, BMEvQ_pt evq)
+    pthread_mutex_t* wrproh, pthread_mutex_t* rbblock, BMEvQ_pt evq)
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
         memcpy(&ctx->base, comm, sizeof(BMComm_t));
         ctx->wrproh = wrproh;
-        ctx->evq = evq;
+        ctx->rbblock = rbblock;
+        ctx->evq = evq; // evq is usually supplied by downstream FSM.
         ctx->buffer = BMBufferPool_SGet(BMBufferPoolType_SHORT);
         ctx->rb = BMRingBufferPool_SGet(BMRingBufferPoolType_SHORT);
         ctx->ev.listeners = 0;
         ctx->ev.param = ctx->rb;
         ctx->ev.id = BMEVID_RBEMPTY;
+        ctx->cont = 1;
     } while (0);
     return status;
 }
 
 BMStatus_t BMCommRxThCtx_Init(BMCommRxThCtx_pt ctx, BMComm_cpt comm,
-    pthread_spinlock_t* wrproh, BMEvQ_pt evq, BMDispatcher_pt oneshot)
+    pthread_mutex_t* wrproh, pthread_mutex_t* rbblock, BMEvQ_pt evq,
+    BMDispatcher_pt oneshot)
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-        status = BMCommThCtx_Init(&ctx->base, comm, wrproh, evq);
+        status = BMCommThCtx_Init(&ctx->base, comm, wrproh, rbblock, evq);
         if (BMSTATUS_SUCCESS != status)
         {
             break;
@@ -233,7 +237,9 @@ void* BMComm_TxTh(void* ctx)
     {
         if (BMRingBuffer_ISEMPTY(ctx_->rb))
         {
-            pause();
+            BMEvQ_Put(ctx_->evq, &ctx_->ev);
+            pthread_mutex_trylock(ctx_->rbblock);
+            pthread_mutex_lock(ctx_->rbblock);
         }
         ctx_->buffer->filled = BMRingBuffer_Gets(
             ctx_->rb, ctx_->buffer->buf, ctx_->buffer->size);

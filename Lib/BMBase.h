@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <stddef.h>
 #include <assert.h>
+#include <signal.h>
 #include "BMEvId.h"
 
 // Error log
@@ -41,6 +42,9 @@
 #define ARCH_MASK           (ARCH_WORD_SIZE - 1)
 #define DOWNALIGN_ARCH(_n)  ((_n) & (~ARCH_MASK))
 #define ALIGN_ARCH(_n)      (DOWNALIGN_ARCH(_n) + ARCH_WORD_SIZE)
+
+#define BMEVQPOOL_QCOUINT   8
+#define BMEVQPOOL_QSIZE     4
 
 #if !defined(ARRAYSIZE)
 #define ARRAYSIZE(_a) sizeof(_a)/sizeof(_a[0])
@@ -128,11 +132,11 @@ pthread_spin_destroy(&(_varname.qbase.lock))
 \param _count [in] array element count
 */
 #define BMEvQ_ADECL(_varname, _size, _count) \
-EMEv_pt _varname ## _ev[_size * _count]; \
+BMEv_pt _varname ## _ev[_size * _count]; \
 BMEvQ_t _varname[_count];
 
 #define BMEvQ_SADECL(_varname, _size, _count) \
-static EMEv_pt _varname ## _ev[_size * _count]; \
+static BMEv_pt _varname ## _ev[_size * _count]; \
 static BMEvQ_t _varname[_count];
 
 #define BMEvQ_AINIT(_varname) \
@@ -142,9 +146,9 @@ static BMEvQ_t _varname[_count];
     for (int _i = 0; _i < _count; _i++) \
     { \
         BMQBase_t _qbase = BMQBase(_size); \
-        memcpy(&(_varname[i].qbase), &_qbase, sizeof(BMQBase_t)); \
-        _varname[i].events = _varname ## _ev + _i * _size; \
-        pthread_spin_init(&(_varname[i].qbase.lock), PTHREAD_PROCESS_PRIVATE); \
+        memcpy(&(_varname[_i].qbase), &_qbase, sizeof(BMQBase_t)); \
+        _varname[_i].events = _varname ## _ev + _i * _size; \
+        pthread_spin_init(&(_varname[_i].qbase.lock), PTHREAD_PROCESS_PRIVATE); \
     } \
 }
 
@@ -153,9 +157,30 @@ static BMEvQ_t _varname[_count];
     int _count = ARRAYSIZE(_varname); \
     for (int _i = 0; _i < _count; _i++) \
     { \
-        pthread_spin_destroy(&(_varname[i].qbase.lock)); \
+        pthread_spin_destroy(&(_varname[_i].qbase.lock)); \
     } \
 }
+
+/*!
+\brief initialize static pool of BMEvQ_t
+*/
+void BMEvQPool_SInit();
+
+/*!
+\brief deinitialize static pool of BMEvQ_t
+*/
+void BMEvQPool_SDeinit();
+
+/*!
+\brief get an instance in static pool of BMEvQ_t.
+*/
+BMEvQ_pt BMEvQPool_SGet();
+
+/*!
+\brief return the instance obtained by BMEvQPool_SGet() to the
+    static pool.
+*/
+BMStatus_t BMEvQPool_SReturn(BMEvQ_pt q);
 
 /*!
 \brief put an event pointer to the queue.

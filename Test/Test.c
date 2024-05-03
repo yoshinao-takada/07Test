@@ -7,9 +7,10 @@ int STickUT();
 int EvPoolUT();
 int BufferUT();
 int CommUT();
-int RTSignalUT();
 int RingBufferUT();
 int CommThUT();
+int EvQPoolUT();
+int LockNUnlockUT();
 
 int HasSth(int argc, const char* argv[], const char* sth)
 {
@@ -23,8 +24,8 @@ int HasSth(int argc, const char* argv[], const char* sth)
 #define DO_SVR(_argc, _argv) HasSth(_argc, _argv, "svr")
 #define DO_CLI(_argc, _argv) HasSth(_argc, _argv, "cli")
 #define DO_COMM(_argc, _argv) HasSth(_argc, _argv, "comm")
-#define DO_RTSIG(_argc, _argv) HasSth(_argc, _argv, "rtsig")
 #define DO_COMMTH(_argc, _argv) HasSth(_argc, _argv, "commth")
+#define DO_LOCKNUNLOCK(_argc, _argv) HasSth(_argc, _argv, "lock")
 
 
 int main(int argc, const char* argv[])
@@ -61,20 +62,19 @@ int main(int argc, const char* argv[])
         {
             BMERR_LOGBREAKEX("Fail in CommTh() = %d", err);
         }
-        else if (DO_RTSIG(argc, argv) &&
-                (EXIT_SUCCESS != (err = RTSignalUT())))
+        else if (DO_LOCKNUNLOCK(argc, argv) && EXIT_SUCCESS != (err = LockNUnlockUT()))
         {
-            BMERR_LOGBREAKEX("Fail in RTSignalUT() = %d", err);
+            BMERR_LOGBREAKEX("Fail in LockNUnlockUT() = %d", err);
         }
         // if it did one of special tests, it terminates the program.
-        if (
-            DO_TICKUT(argc, argv) || 
-            DO_STICKUT(argc, argv) || 
-            DO_SVR(argc, argv) || 
-            DO_CLI(argc, argv) ||
+        if (DO_TICKUT(argc, argv) ||
+            DO_STICKUT(argc, argv) ||
             DO_COMM(argc, argv) ||
             DO_COMMTH(argc, argv) ||
-            DO_RTSIG(argc, argv)) break;
+            DO_LOCKNUNLOCK(argc, argv))
+        {
+            break;
+        }
 
         // beginning of general tests
         if (EXIT_SUCCESS != (err = EvPoolUT()))
@@ -92,7 +92,12 @@ int main(int argc, const char* argv[])
             BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
                 "Fail in RingBufferUT() = %d", err);
         }
+        if (EXIT_SUCCESS != (err = EvQPoolUT()))
+        {
+            BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
+                "Fail in EvQPoolUT() = %d", err);
+        }
     } while (0);
-    BMEND_FUNC(__FILE__, __FUNCTION__, __LINE__, err);
+    BMEND_FUNCEX(err);
     return err;
 }
