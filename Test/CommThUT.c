@@ -178,18 +178,31 @@ static BMStatus_t CommTxThUT_SendBytes()
     BMStatus_t status = BMSTATUS_SUCCESS;
     int messageIndex = 0;
     do {
+        // send the 1st message.
         int bytesToSend = strlen(MESSAGES[messageIndex]);
-        status = BMRingBuffer_Puts(txctx.rb, MESSAGES[messageIndex],
-            bytesToSend);
+        BMRingBuffer_Puts(txctx.rb, MESSAGES[messageIndex++], bytesToSend);
         pthread_mutex_unlock(&rbblock);
-        sleep(1);
-        printf("txevq ev count = %d @ %s\n",
-            txevq->qbase.wridx - txevq->qbase.rdidx, __FUNCTION__);
         BMEv_pt txev;
-        if (1 != BMEvQ_Get(txevq, &txev))
-        {
-            BMERR_LOGBREAKEX("Fail in BMEvQ_Get(txevq, &txev)");
-        }
+        while (1 != BMEvQ_Get(txevq, &txev)) ;
+        printf("txev was obtained.\n");
+        txev->listeners--;
+        printf("txev->listeners = %d\n", txev->listeners);
+
+        // send the 2nd message.
+        bytesToSend = strlen(MESSAGES[messageIndex]);
+        BMRingBuffer_Puts(txctx.rb, MESSAGES[messageIndex++], bytesToSend);
+        pthread_mutex_unlock(&rbblock);
+        while (1 != BMEvQ_Get(txevq, &txev)) ;
+        printf("txev was obtained.\n");
+        txev->listeners--;
+        printf("txev->listeners = %d\n", txev->listeners);
+
+        // send the 3rd message.
+        bytesToSend = strlen(MESSAGES[messageIndex]);
+        BMRingBuffer_Puts(txctx.rb, MESSAGES[messageIndex++], bytesToSend);
+        pthread_mutex_unlock(&rbblock);
+        while (1 != BMEvQ_Get(txevq, &txev)) ;
+        printf("txev was obtained.\n");
         txev->listeners--;
         printf("txev->listeners = %d\n", txev->listeners);
         sleep(1);
@@ -358,6 +371,10 @@ BMStatus_t CommTxThUT()
 }
 #pragma endregion CommTxThUT_and_its_helper_functions
 
+#pragma region CommRxThUT_and_its_helper_functions
+// Step 1: Open comm port and start Rx thread.
+// Step 2: Open another commport for main thread as Tx thread.
+// Step 3: 
 BMStatus_t CommRxThUT()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
@@ -367,6 +384,7 @@ BMStatus_t CommRxThUT()
     BMEND_FUNCEX(status);
     return status;
 }
+#pragma endregion CommRxThUT_and_its_helper_functions
 
 BMStatus_t CommFSMUT()
 {
@@ -377,3 +395,4 @@ BMStatus_t CommFSMUT()
     BMEND_FUNCEX(status);
     return status;
 }
+

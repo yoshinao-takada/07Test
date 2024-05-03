@@ -4,12 +4,12 @@ state "Reading & Pause" as RP
 state "Writing" as WR
 [*] --> RD
 RD --> RD : Recv Rx chars\n/Restart timer
-RD --> RD : Recv Tx chars\n/Put into TxRB
+RD --> RD : Recv Tx message/\nPut into Tx-RB
 RD --> RP : timer timeout\n[TxRB empty]
 RP --> RD : Recv Rx chars
 RD --> WR : timer timeout\n[TxRB !empty]
-RP --> WR : Recv Tx chars\n/Put into TxRB
+RP --> WR : Recv Tx message/\nPut into Tx-RB
 state RD : Entry/\n\tStart timer
-state WR : Entry/\n\tsignal to Tx-th;
+state WR : Entry/\n\tunlock rbblock mutex
 WR --> RD : Tx-th notify of TxRB empty
 @enduml

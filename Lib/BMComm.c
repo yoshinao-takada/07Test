@@ -237,7 +237,9 @@ void* BMComm_TxTh(void* ctx)
     {
         if (BMRingBuffer_ISEMPTY(ctx_->rb))
         {
+            // Notify PHY FSM of Tx-RB empty.
             BMEvQ_Put(ctx_->evq, &ctx_->ev);
+            // wait on rbblock mutex.
             pthread_mutex_trylock(ctx_->rbblock);
             pthread_mutex_lock(ctx_->rbblock);
         }

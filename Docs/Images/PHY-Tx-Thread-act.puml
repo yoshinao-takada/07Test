@@ -2,12 +2,11 @@
 start
 repeat
     if (RB empty) then(yes)
-        :Notify RB-empty\nto PHY FSM;
-        :pause;
-    else
-        :get chars;
-        :write;
+        :Notify PHY FSM\nof Tx-RB empty;
+        :wait on rbblock mutex;
     endif
+    :get chars;
+    :write;
 repeat while (cont?)
 end
 @enduml
