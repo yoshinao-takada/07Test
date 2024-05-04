@@ -32,6 +32,7 @@ int main(int argc, const char* argv[])
 {
     int err = EXIT_SUCCESS;
     do {
+        BMBASELOCK_INIT;
         if (DO_TICKUT(argc, argv) &&
             (EXIT_SUCCESS != (err = TickUT())))
         {
@@ -99,5 +100,6 @@ int main(int argc, const char* argv[])
         }
     } while (0);
     BMEND_FUNCEX(err);
+    BMBASELOCK_DESTROY;
     return err;
 }

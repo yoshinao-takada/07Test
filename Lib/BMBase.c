@@ -1,3 +1,4 @@
+#define BMBASE_C
 #include "BMBase.h"
 // return the bit number of the 1st zero searching from LSB.
 // The bit in x is set if the bit is zero.

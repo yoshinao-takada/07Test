@@ -10,6 +10,8 @@ BMStatus_t CommTxThUT();
 BMStatus_t CommRxThUT();
 BMStatus_t CommFSMUT();
 
+static const BMCommConf_t COMM_CONF0 = { PORT_NAME0, B115200 };
+static const BMCommConf_t COMM_CONF1 = { PORT_NAME1, B115200 };
 // buffer to reserve variables used duaring testing.
 static struct sigaction sa_old;
 static pthread_t rxth, txth;
@@ -26,7 +28,7 @@ BMEv_t ev[] = {
     { BMEVID_RBEMPTY, 0, NULL },
     { BMEVID_RBEMPTY, 0, NULL },
 };
-
+static int TestRx_QuitRequest;
 /*!
 \brief Threading functions in BMComm.h are tested here.
 */
@@ -64,13 +66,20 @@ void* CommTxThUT_TestRx(void* param)
 {
     BMComm_cpt comm = (BMComm_cpt)param;
     uint8_t buf[TEST_BUFSIZE], render_buf[TEST_BUFSIZE + 1];
-    for (;;)
+    int _errno = 0;
+    TestRx_QuitRequest = 0;
+    for (; TestRx_QuitRequest == 0;)
     {
+        BMLOCKED_PRINTF("calling read() @ %s,%d\n", __FUNCTION__, __LINE__);
         ssize_t readlen = read(comm->fd, buf, TEST_BUFSIZE);
-        if (readlen < 0)
-        { // exit thread if a signal was sent to the thread.
-            if (errno == EINTR) break;
-            BMERR_LOGBREAKEX("Fail in read()");
+        if (readlen == 0)
+        { // read() timeout.
+            BMLOCKED_PRINTF("readlen == 0 & errno = %d\n", errno);
+            continue;;
+        }
+        else if (readlen < 0)
+        {
+            BMERR_LOGBREAKEX("Fail in read(), errno = %d\n", errno);
         }
         int i = 0;
         for (; i < readlen; i++)
@@ -78,20 +87,21 @@ void* CommTxThUT_TestRx(void* param)
             render_buf[i] = (buf[i] < ' ') ? '.' : buf[i];
         }
         render_buf[i] = '\0';
-        printf("buf = %s", render_buf);
+        BMLOCKED_PRINTF("buf = %s", render_buf);
         for (i = 0; i < readlen; i++)
         {
             printf("%c%02x", (i == 0) ? ':' : ' ', buf[i]);
         }
-        printf("\n");
+        BMLOCKED_PRINTF("\n");
     }
+    BMLOCKED_PRINTF("%s exits.\n", __FUNCTION__);
     return param;
 }
 
 // dummy signal handler
 void CommTxThUT_SigUsr1Handler(int sig)
 {
-    printf("%s\n", __FUNCTION__);
+    BMLOCKED_PRINTF("%s\n", __FUNCTION__);
 }
 
 // Step 1: set SIGUSR1 handler to doing nothing one.
@@ -116,8 +126,7 @@ static BMStatus_t CommTxThUT_StartRead()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-        BMCommConf_t conf = { PORT_NAME1, B9600 };
-        status = BMComm_Open(&conf, &rxcomm);
+        status = BMComm_Open(&COMM_CONF0, &rxcomm);
         if (status)
         {
             BMERR_LOGBREAKEX("Fail in BMComm_Open()");
@@ -136,7 +145,6 @@ static BMStatus_t CommTxThUT_StartRead()
 static BMStatus_t CommTxThUT_StartWrite()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
-    BMCommConf_t commconf = { PORT_NAME0, B9600 };
     do {
         if (pthread_mutex_unlock(&wrproh))
         {
@@ -148,7 +156,7 @@ static BMStatus_t CommTxThUT_StartWrite()
             status = BMSTATUS_INVALID;
             BMERR_LOGBREAKEX("Fail in pthread_mutex_unlock(&rbblock)");
         }
-        if (BMSTATUS_SUCCESS != (status = BMComm_Open(&commconf, &txcomm)))
+        if (BMSTATUS_SUCCESS != (status = BMComm_Open(&COMM_CONF1, &txcomm)))
         {
             BMERR_LOGBREAKEX("Fail in BMComm_Open()");
         }
@@ -205,7 +213,7 @@ static BMStatus_t CommTxThUT_SendBytes()
         printf("txev was obtained.\n");
         txev->listeners--;
         printf("txev->listeners = %d\n", txev->listeners);
-        sleep(1);
+        sleep(2);
     } while (0);
     BMEND_FUNCEX(status);
     return status;
@@ -275,11 +283,16 @@ static BMStatus_t CommTxThUT_StopRead()
     BMStatus_t status = BMSTATUS_SUCCESS;
     void* thread_return = NULL;
     do {
-        if (pthread_kill(rxth, SIGUSR1))
-        {
-            status = BMSTATUS_INVALID;
-            BMERR_LOGBREAKEX("Fail in pthread_kill(rxth, SIGUSR1)");
-        }
+        BMLOCKED_PRINTF
+        ("Setting TestRx_QuitRequest @ %s,%d\n", __FUNCTION__, __LINE__);
+        TestRx_QuitRequest = 1;
+        // if (pthread_kill(rxth, SIGUSR1))
+        // {
+        //     status = BMSTATUS_INVALID;
+        //     BMERR_LOGBREAKEX("Fail in pthread_kill(rxth, SIGUSR1)");
+        // }
+        BMLOCKED_PRINTF
+        ("calling pthread_join(rxth) @ %s,%d\n", __FUNCTION__, __LINE__);
         if (pthread_join(rxth, &thread_return))
         {
             status = BMSTATUS_INVALID;
@@ -372,9 +385,12 @@ BMStatus_t CommTxThUT()
 #pragma endregion CommTxThUT_and_its_helper_functions
 
 #pragma region CommRxThUT_and_its_helper_functions
-// Step 1: Open comm port and start Rx thread.
-// Step 2: Open another commport for main thread as Tx thread.
-// Step 3: 
+// Step 1: Define an event queue to receive Rx RB event from Rx thread.
+// Step 2: Open comm port and start Rx thread.
+// Step 3: Open another commport for main thread as Tx thread.
+// Step 4: Repeat Tx and Rx several times.
+// Step 5: Close Tx comm port.
+// Step 6: Stop Rx thread and close comm port.
 BMStatus_t CommRxThUT()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;

@@ -21,9 +21,23 @@
 #include "BMEvId.h"
 
 // Error log
+#if defined(BMBASE_C)
+pthread_spinlock_t baselock;
+#else
+extern pthread_spinlock_t baselock;
+#endif
+#define BMBASELOCK_INIT pthread_spin_init(&baselock, PTHREAD_PROCESS_PRIVATE)
+#define BMBASELOCK_DESTROY pthread_spin_destroy(&baselock)
+#define BMLOCKED_PRINTF(...) \
+    pthread_spin_lock(&baselock); \
+    printf(__VA_ARGS__); \
+    pthread_spin_unlock(&baselock)
+
 #define BMERR_LOG(_file,_fn,_ln,...) \
+    pthread_spin_lock(&baselock); \
     fprintf(stderr,__VA_ARGS__); \
-    fprintf(stderr, "@ %s,%s,%d\n", _file, _fn, _ln)
+    fprintf(stderr, "@ %s,%s,%d\n", _file, _fn, _ln); \
+    pthread_spin_unlock(&baselock)
 
 #define BMERR_LOGBREAK(_file,_fn,_ln,...) \
     BMERR_LOG(_file,_fn,_ln,__VA_ARGS__); break
@@ -32,7 +46,7 @@
         BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
 
 #define BMEND_FUNC(_file,_fn,_ln,_st) \
-    fprintf(stdout, "Status = %d @ %s,%s,%d\n", _st,_file,_fn,_ln)
+    BMLOCKED_PRINTF("Status = %d @ %s,%s,%d\n", _st,_file,_fn,_ln)
 
 #define BMEND_FUNCEX(_st) \
     BMEND_FUNC(__FILE__, __FUNCTION__, __LINE__, _st)

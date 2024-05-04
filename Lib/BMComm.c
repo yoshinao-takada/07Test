@@ -107,8 +107,12 @@ BMStatus_t BMComm_Open(BMCommConf_cpt conf, BMComm_pt comm)
         opt.c_oflag &= ~OPOST;
         // program wait for infinite time until more than one
         // characters are received.
-        opt.c_cc[VMIN] = 1;
-        opt.c_cc[VTIME] = 0;
+        // opt.c_cc[VMIN] = 1;
+        // opt.c_cc[VTIME] = 0;
+        // program wait for deciseconds of c_cc[VTIME]
+        // in the following case, timeout is 0.5seconds.
+        opt.c_cc[VMIN] = 0;
+        opt.c_cc[VTIME] = 5;
         tcsetattr(comm->fd, TCSANOW, &opt);
         status = BMBaudDesc_ToSecPerByte(comm->fd, &comm->secPerByte);
     } while (0);
