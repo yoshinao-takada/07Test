@@ -29,6 +29,13 @@ BMEv_t ev[] = {
     { BMEVID_RBEMPTY, 0, NULL },
 };
 static int TestRx_QuitRequest;
+static BMEvQ_pt rxevq;
+static const uint8_t* MESSAGES[] = {
+    "0123456789",
+    "ABCDEFGHIJ",
+    "abcdefghij"
+};
+
 /*!
 \brief Threading functions in BMComm.h are tested here.
 */
@@ -176,11 +183,6 @@ static BMStatus_t CommTxThUT_StartWrite()
     return status;
 }
 // Step 4: send test byte sequences.
-static uint8_t* MESSAGES[] = {
-    "0123456789",
-    "ABCDEFGHIJ",
-    "abcdefghij"
-};
 static BMStatus_t CommTxThUT_SendBytes()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
@@ -385,8 +387,73 @@ BMStatus_t CommTxThUT()
 #pragma endregion CommTxThUT_and_its_helper_functions
 
 #pragma region CommRxThUT_and_its_helper_functions
-// Step 1: Define an event queue to receive Rx RB event from Rx thread.
-// Step 2: Open comm port and start Rx thread.
+// Step 1: Open comm port and init Rx context
+BMStatus_t CommRxTh_InitRxCtx()
+{
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    do {
+
+    } while (0);
+    BMEND_FUNCEX(status);
+    return status;
+}
+
+// Step 2: Start Rx thread.
+BMStatus_t CommRxTh_StartRx()
+{
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    do {
+
+    } while (0);
+    BMEND_FUNCEX(status);
+    return status;
+}
+// Step 3: Open another commport for main thread as Tx thread.
+BMStatus_t CommRxTh_OpenTx()
+{
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    do {
+
+    } while (0);
+    BMEND_FUNCEX(status);
+    return status;
+}
+
+// Step 4: Repeat Tx and Rx several times.
+BMStatus_t CommRxTh_SendMsg()
+{
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    do {
+
+    } while (0);
+    BMEND_FUNCEX(status);
+    return status;
+}
+
+// Step 5: Close Tx comm port.
+BMStatus_t CommRxTh_CloseTx()
+{
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    do {
+
+    } while (0);
+    BMEND_FUNCEX(status);
+    return status;
+}
+
+// Step 6: Stop Rx thread and close comm port.
+BMStatus_t CommRxTh_StopCloseRx()
+{
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    do {
+
+    } while (0);
+    BMEND_FUNCEX(status);
+    return status;
+}
+
+// Step 1: Open comm port and init Rx context
+// Step 2: Start Rx thread.
 // Step 3: Open another commport for main thread as Tx thread.
 // Step 4: Repeat Tx and Rx several times.
 // Step 5: Close Tx comm port.
@@ -395,7 +462,30 @@ BMStatus_t CommRxThUT()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-
+        if (BMSTATUS_SUCCESS != (status = CommRxTh_InitRxCtx()))
+        {
+            BMERR_LOGBREAKEX("Fail in CommRxTh_InitRxCtx()");
+        }
+        if (BMSTATUS_SUCCESS != (status = CommRxTh_StartRx()))
+        {
+            BMERR_LOGBREAKEX("Fail in CommRxTh_StartRx()");
+        }
+        if (BMSTATUS_SUCCESS != (status = CommRxTh_OpenTx()))
+        {
+            BMERR_LOGBREAKEX("Fail in CommRxTh_OpenTx()");
+        }
+        if (BMSTATUS_SUCCESS != (status = CommRxTh_SendMsg()))
+        {
+            BMERR_LOGBREAKEX("Fail in CommRxTh_SendMsg()");
+        }
+        if (BMSTATUS_SUCCESS != (status = CommRxTh_CloseTx()))
+        {
+            BMERR_LOGBREAKEX("Fail in CommRxTh_CloseTx()");
+        }
+        if (BMSTATUS_SUCCESS != (status = CommRxTh_StopCloseRx()))
+        {
+            BMERR_LOGBREAKEX("Fail in CommRxTh_StopCloseRx()");
+        }
     } while (0);
     BMEND_FUNCEX(status);
     return status;
