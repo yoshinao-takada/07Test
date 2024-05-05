@@ -142,7 +142,6 @@ BMStatus_t BMCommCtx_Init
             memcpy(&ctx->wrproh, &mtxtemp, sizeof(pthread_mutex_t));
             memcpy(&ctx->rbblock, &mtxtemp, sizeof(pthread_mutex_t));
         }
-        ctx->txctx.wrproh = ctx->rxctx.base.wrproh = &ctx->wrproh;
         ctx->txctx.rbblock = ctx->rxctx.base.rbblock = &ctx->rbblock;
 
         // init buffers
@@ -157,6 +156,15 @@ BMStatus_t BMCommCtx_Init
     return status;
 }
 
+// BMDispatcher, timer dispatcher handler to reset
+// wrproh flag.
+static void* ResetWrproh(void* wrproh)
+{
+    int* wrproh_ = (int*)wrproh;
+    *wrproh_ = 0;
+    return wrproh;
+}
+
 void* BMComm_RxTh(void* ctx)
 {
     BMCommRxThCtx_pt ctx_ = (BMCommRxThCtx_pt)ctx;
@@ -166,10 +174,12 @@ void* BMComm_RxTh(void* ctx)
     double waitTime = waitByteCount * ctxbase->base.secPerByte;
     int wrprohIni = MAX((int)ceil(waitTime / tickInterval), 1);
     ssize_t readResult = -1;
+    ctx_->oneshot->param = ctx_->wrproh;
+    ctx_->oneshot->handler = ResetWrproh;
     while (ctx_->base.cont)
     {
         // prohibit tx and start 1-shot delay
-        pthread_mutex_lock(ctxbase->wrproh);
+        *(ctx_->wrproh) = 1; // prohibit to transit to WR state.
         ctx_->oneshot->count = wrprohIni;
         readResult = read(ctxbase->base.fd, ctxbase->buffer->buf,
             ctxbase->buffer->size);
@@ -200,12 +210,11 @@ void* BMComm_RxTh(void* ctx)
 }
 
 BMStatus_t BMCommThCtx_Init(BMCommThCtx_pt ctx, BMComm_cpt comm,
-    pthread_mutex_t* wrproh, pthread_mutex_t* rbblock, BMEvQ_pt evq)
+    pthread_mutex_t* rbblock, BMEvQ_pt evq)
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
         memcpy(&ctx->base, comm, sizeof(BMComm_t));
-        ctx->wrproh = wrproh;
         ctx->rbblock = rbblock;
         ctx->evq = evq; // evq is usually supplied by downstream FSM.
         ctx->buffer = BMBufferPool_SGet(BMBufferPoolType_SHORT);
@@ -219,16 +228,17 @@ BMStatus_t BMCommThCtx_Init(BMCommThCtx_pt ctx, BMComm_cpt comm,
 }
 
 BMStatus_t BMCommRxThCtx_Init(BMCommRxThCtx_pt ctx, BMComm_cpt comm,
-    pthread_mutex_t* wrproh, pthread_mutex_t* rbblock, BMEvQ_pt evq,
+    int* wrproh, pthread_mutex_t* rbblock, BMEvQ_pt evq,
     BMDispatcher_pt oneshot)
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-        status = BMCommThCtx_Init(&ctx->base, comm, wrproh, rbblock, evq);
+        status = BMCommThCtx_Init(&ctx->base, comm, rbblock, evq);
         if (BMSTATUS_SUCCESS != status)
         {
             break;
         }
+        ctx->wrproh = wrproh;
         ctx->oneshot = oneshot;
     } while (0);
     return status;

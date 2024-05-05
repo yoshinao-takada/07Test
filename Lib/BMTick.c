@@ -115,7 +115,7 @@ BMDispatchers_SDECL(sdisps, BMDISPATCHERS_STATIC_SIZE);
 void BMDispatchers_SInit(uint16_t tickPeriod)
 {
     BMDispatchers_INIT(sdisps);
-    BMSystick_Init(sdisps.q, BMTICK_MIN_PERIOD);
+    BMSystick_Init(sdisps.q, MIN(BMTICK_MIN_PERIOD, tickPeriod));
 }
 
 void BMDispatchers_SDeinit()

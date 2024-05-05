@@ -13,12 +13,10 @@ BMStatus_t CommFSMUT();
 static const BMCommConf_t COMM_CONF0 = { PORT_NAME0, B115200 };
 static const BMCommConf_t COMM_CONF1 = { PORT_NAME1, B115200 };
 // buffer to reserve variables used duaring testing.
-static struct sigaction sa_old;
 static pthread_t rxth, txth;
 static BMComm_t rxcomm, txcomm;
 static BMCommThCtx_t txctx;
 static BMCommRxThCtx_t rxthctx;
-static pthread_mutex_t wrproh = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t rbblock = PTHREAD_MUTEX_INITIALIZER;
 static BMEvQ_pt txevq;
 BMEvQ_SDECL(evq, 4);
@@ -35,6 +33,7 @@ static const uint8_t* MESSAGES[] = {
     "ABCDEFGHIJ",
     "abcdefghij"
 };
+static int wrproh;
 
 /*!
 \brief Threading functions in BMComm.h are tested here.
@@ -105,29 +104,6 @@ void* CommTxThUT_TestRx(void* param)
     return param;
 }
 
-// dummy signal handler
-void CommTxThUT_SigUsr1Handler(int sig)
-{
-    BMLOCKED_PRINTF("%s\n", __FUNCTION__);
-}
-
-// Step 1: set SIGUSR1 handler to doing nothing one.
-static BMStatus_t CommTxThUT_SetSigHandler()
-{
-    BMStatus_t status = BMSTATUS_SUCCESS;
-    do {
-        struct sigaction sa;
-        sigemptyset(&sa.sa_mask);
-        sa.sa_handler = CommTxThUT_SigUsr1Handler;
-        if (sigaction(SIGUSR1, &sa, &sa_old) == -1)
-        {
-            BMERR_LOGBREAKEX("Fail in sigaction()");
-        }
-    } while (0);
-    BMEND_FUNCEX(status);
-    return status;
-}
-
 // Step 2: start test read thread
 static BMStatus_t CommTxThUT_StartRead()
 {
@@ -153,11 +129,6 @@ static BMStatus_t CommTxThUT_StartWrite()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-        if (pthread_mutex_unlock(&wrproh))
-        {
-            status = BMSTATUS_INVALID;
-            BMERR_LOGBREAKEX("Fail in pthread_mutex_unlock(&wrproh)");
-        }
         if (pthread_mutex_lock(&rbblock))
         {
             status = BMSTATUS_INVALID;
@@ -168,7 +139,7 @@ static BMStatus_t CommTxThUT_StartWrite()
             BMERR_LOGBREAKEX("Fail in BMComm_Open()");
         }
         if (BMSTATUS_SUCCESS !=
-            (status = BMCommThCtx_Init(&txctx, &txcomm, &wrproh, &rbblock,
+            (status = BMCommThCtx_Init(&txctx, &txcomm, &rbblock,
                 txevq = BMEvQPool_SGet())))
         {
             BMERR_LOGBREAKEX("Fail in BMCommThCtx_Init()");
@@ -230,11 +201,6 @@ static BMStatus_t CommTxThUT_StopWrite()
         // reset continue request of tx thread.
         txctx.cont = 0;
         // unblock tx thread loop
-        if (pthread_mutex_unlock(&wrproh))
-        {
-            status = BMSTATUS_INVALID;
-            BMERR_LOGBREAKEX("Fail in pthread_mutex_unlock(&wrproh)");
-        }
         if (pthread_mutex_unlock(&rbblock))
         {
             status = BMSTATUS_INVALID;
@@ -311,20 +277,6 @@ static BMStatus_t CommTxThUT_StopRead()
     return status;
 }
 
-// Step 7: reset SIGUSR1 handler.
-static BMStatus_t CommTxThUT_ResetSigHandler()
-{
-    BMStatus_t status = BMSTATUS_SUCCESS;
-    do {
-        if (sigaction(SIGUSR1, &sa_old, NULL) == -1)
-        {
-            BMERR_LOGBREAKEX("Fail in sigaction()");
-        }
-    } while (0);
-    BMEND_FUNCEX(status);
-    return status;
-}
-
 /*!
 \brief Test CommTxTh thread function
 Step 1: set SIGUSR1 handler to doing nothing one.
@@ -339,12 +291,6 @@ BMStatus_t CommTxThUT()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-        // Step 1: set SIGUSR1 handler to doing nothing one.
-        if (status = CommTxThUT_SetSigHandler())
-        {
-            BMERR_LOGBREAKEX("Fail in CommTxThUT_SetSigHandler()");
-        }
-
         // Step 2: start test read thread
         if (status = CommTxThUT_StartRead())
         {
@@ -373,14 +319,7 @@ BMStatus_t CommTxThUT()
         {
             BMERR_LOGBREAKEX("Fail in CommTxThUT_StopRead()");
         }
-
-        // Step 7: reset SIGUSR1 handler.
-        if (status = CommTxThUT_ResetSigHandler())
-        {
-            BMERR_LOGBREAKEX("Fail in CommTxThUT_ResetSigHandler()");
-        }
-        
-    } while (0);
+   } while (0);
     BMEND_FUNCEX(status);
     return status;
 }
@@ -391,8 +330,14 @@ BMStatus_t CommTxThUT()
 BMStatus_t CommRxTh_InitRxCtx()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
+    BMComm_t comm;
     do {
-
+        if (BMSTATUS_SUCCESS != (status = BMComm_Open(&COMM_CONF0, &comm)))
+        {
+            BMERR_LOGBREAKEX("Fail in BMComm_Open()");
+        }
+        status = BMCommRxThCtx_Init(&rxthctx, &comm, &wrproh, &rbblock,
+            BMEvQPool_SGet(), BMDispatchers_SGet(0));
     } while (0);
     BMEND_FUNCEX(status);
     return status;
@@ -435,7 +380,7 @@ BMStatus_t CommRxTh_CloseTx()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-
+        BMComm_Close(&txctx.base);
     } while (0);
     BMEND_FUNCEX(status);
     return status;
@@ -446,6 +391,8 @@ BMStatus_t CommRxTh_StopCloseRx()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
+        // reset continuous flag
+        rxthctx.base.cont = 0;
 
     } while (0);
     BMEND_FUNCEX(status);
@@ -461,6 +408,10 @@ BMStatus_t CommRxTh_StopCloseRx()
 BMStatus_t CommRxThUT()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
+    BMDispatchers_SInit(0);
+    BMEvQPool_SInit();
+    BMBufferPool_SInit();
+    BMRingBufferPool_SInit();
     do {
         if (BMSTATUS_SUCCESS != (status = CommRxTh_InitRxCtx()))
         {
@@ -487,6 +438,10 @@ BMStatus_t CommRxThUT()
             BMERR_LOGBREAKEX("Fail in CommRxTh_StopCloseRx()");
         }
     } while (0);
+    BMDispatchers_SDeinit();
+    BMEvQPool_SDeinit();
+    BMBufferPool_SDeinit();
+    BMRingBufferPool_SDeinit();
     BMEND_FUNCEX(status);
     return status;
 }
