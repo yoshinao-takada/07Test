@@ -162,6 +162,7 @@ static void* ResetWrproh(void* wrproh)
 {
     int* wrproh_ = (int*)wrproh;
     *wrproh_ = 0;
+    BMLOCKED_PRINTF("%s called.\n", __FUNCTION__);
     return wrproh;
 }
 
@@ -176,11 +177,13 @@ void* BMComm_RxTh(void* ctx)
     ssize_t readResult = -1;
     ctx_->oneshot->param = ctx_->wrproh;
     ctx_->oneshot->handler = ResetWrproh;
+    ctx_->base.cont = 1;
+    *(ctx_->wrproh) = 1; // prohibit to transit to WR state.
     while (ctx_->base.cont)
     {
         // prohibit tx and start 1-shot delay
-        *(ctx_->wrproh) = 1; // prohibit to transit to WR state.
         ctx_->oneshot->count = wrprohIni;
+        BMLOCKED_PRINTF("ctx_->wrproh = %d\n", *(ctx_->wrproh));
         readResult = read(ctxbase->base.fd, ctxbase->buffer->buf,
             ctxbase->buffer->size);
         if (readResult == 0) continue; // timeout
@@ -204,6 +207,7 @@ void* BMComm_RxTh(void* ctx)
             { // send an event to PHY FSM if no error && event is available
                 BMEvQ_Put(ctxbase->evq, &ctxbase->ev);
             }
+            *(ctx_->wrproh) = 1;
         }
     }
     return ctx;

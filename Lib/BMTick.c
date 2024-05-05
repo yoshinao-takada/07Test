@@ -115,7 +115,7 @@ BMDispatchers_SDECL(sdisps, BMDISPATCHERS_STATIC_SIZE);
 void BMDispatchers_SInit(uint16_t tickPeriod)
 {
     BMDispatchers_INIT(sdisps);
-    BMSystick_Init(sdisps.q, MIN(BMTICK_MIN_PERIOD, tickPeriod));
+    BMSystick_Init(sdisps.q, tickPeriod);
 }
 
 void BMDispatchers_SDeinit()
@@ -159,7 +159,7 @@ static void handler(int sig)
             status = BMSTATUS_BUFFUL;
             BMERR_LOGBREAK(__FILE__, __FUNCTION__, __LINE__,
                 "event queue full");
-        }        
+        }
     } while (0);
     if (status)
     {
@@ -188,7 +188,7 @@ BMStatus_t BMSystick_Init(BMEvQ_pt evq, uint16_t period)
         }
 
         // start timer
-        BMITimerval_FromMillisec(&itnew, MIN(period, BMTICK_MIN_PERIOD));
+        BMITimerval_FromMillisec(&itnew, period);
         if (setitimer(ITIMER_REAL, &itnew, &itold))
         {
             status = BMSTATUS_INVALID;
@@ -221,5 +221,5 @@ const struct timeval* BMSystick_GetInterval()
 
 double BMSystick_GetIntervalDouble()
 {
-    return 1.0e-6 * BMSystick_GetInterval()->tv_usec;
+    return 1.0e-6 * (BMSystick_GetInterval()->tv_usec);
 }

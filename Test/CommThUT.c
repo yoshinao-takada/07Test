@@ -29,9 +29,25 @@ BMEv_t ev[] = {
 static int TestRx_QuitRequest;
 static BMEvQ_pt rxevq;
 static const uint8_t* MESSAGES[] = {
-    "0123456789",
-    "ABCDEFGHIJ",
-    "abcdefghij"
+    "0)0123456789",
+    "1)ABCDEFGHIJ",
+    "2)abcdefghij",
+    "3)+-*/()!#$%",
+    "4)0123456789",
+    "5)ABCDEFGHIJ",
+    "6)abcdefghij",
+    "7)+-*/()!#$%",
+    "8)0123456789",
+    "9)ABCDEFGHIJ",
+    "A)abcdefghij",
+    "B)+-*/()!#$%",
+    "C)0123456789",
+    "D)ABCDEFGHIJ",
+    "E)abcdefghij",
+    "F)+-*/()!#$%",
+    "G)0123456789",
+    "H)ABCDEFGHIJ",
+    "I)abcdefghij",
 };
 static int wrproh;
 
@@ -330,13 +346,12 @@ BMStatus_t CommTxThUT()
 BMStatus_t CommRxTh_InitRxCtx()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
-    BMComm_t comm;
     do {
-        if (BMSTATUS_SUCCESS != (status = BMComm_Open(&COMM_CONF0, &comm)))
+        if (BMSTATUS_SUCCESS != (status = BMComm_Open(&COMM_CONF0, &rxcomm)))
         {
             BMERR_LOGBREAKEX("Fail in BMComm_Open()");
         }
-        status = BMCommRxThCtx_Init(&rxthctx, &comm, &wrproh, &rbblock,
+        status = BMCommRxThCtx_Init(&rxthctx, &rxcomm, &wrproh, &rbblock,
             BMEvQPool_SGet(), BMDispatchers_SGet(0));
     } while (0);
     BMEND_FUNCEX(status);
@@ -348,7 +363,11 @@ BMStatus_t CommRxTh_StartRx()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-
+        if (pthread_create(&rxth, NULL, BMComm_RxTh, &rxthctx))
+        {
+            status = BMSTATUS_INVALID;
+            BMERR_LOGBREAKEX("Fail in pthread_create()");
+        }
     } while (0);
     BMEND_FUNCEX(status);
     return status;
@@ -358,19 +377,85 @@ BMStatus_t CommRxTh_OpenTx()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-
+        if (BMSTATUS_SUCCESS != (status = BMComm_Open(&COMM_CONF1, &txcomm)))
+        {
+            BMERR_LOGBREAKEX("Fail in BMComm_Open()");
+        }
     } while (0);
     BMEND_FUNCEX(status);
     return status;
+}
+
+BMStatus_t CommRxTh_Write(BMComm_cpt comm, const uint8_t* msg)
+{
+    BMStatus_t status = BMSTATUS_SUCCESS;
+    ssize_t writtenLen = 0;
+    int remaining = strlen(msg);
+    int accWrittenLen = 0;
+    for (; status == BMSTATUS_SUCCESS && remaining > 0; )
+    {
+        writtenLen = write(comm->fd, msg + accWrittenLen, remaining);
+        if (writtenLen > 0)
+        {
+            remaining -= writtenLen;
+            accWrittenLen += writtenLen;
+        }
+    }
+    return status;
+}
+
+void CommRxTh_ShowRxMessage(BMRingBuffer_pt rb, BMBuffer_pt buffer)
+{
+    uint16_t rbgotten = 0;
+    do {
+        buffer->filled = buffer->crunched = 0;
+        rbgotten = BMRingBuffer_Gets(rb, buffer->buf, buffer->size - 1);
+        if (rbgotten)
+        {
+            buffer->buf[rbgotten] = '\0';
+            BMLOCK_STDOUT;
+            printf("buf = %s", buffer->buf);
+            for (uint16_t i = 0; i < rbgotten; i++)
+            {
+                printf("%c%02x", i == 0 ? ':' : ' ', buffer->buf[i]);
+            }
+            printf("\n");
+            BMUNLOCK_STDOUT;
+        }
+    } while (rbgotten);
 }
 
 // Step 4: Repeat Tx and Rx several times.
 BMStatus_t CommRxTh_SendMsg()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
+    BMEv_pt ev;
+    BMBuffer_pt buffer = BMBufferPool_SGet(BMBufferPoolType_SHORT);
+    int msgidx = 0, msgidxmax = ARRAYSIZE(MESSAGES) * 2;
     do {
+        BMDispatchers_SCrunchEvent();
+        if (0 == (msgidx & 1))
+        {
+            const uint8_t* msg = MESSAGES[msgidx >> 1];
+            BMLOCKED_PRINTF("msg = %s\n", msg);
+            status = CommRxTh_Write(&txcomm, msg);
+            msgidx++;
+        }
 
-    } while (0);
+        // wait for Rx event queue being ready.
+        if ((msgidx & 1) && (1 == BMEvQ_Get(rxthctx.base.evq, &ev)))
+        {
+            CommRxTh_ShowRxMessage(rxthctx.base.rb, buffer);
+            ev->listeners--;
+        }
+
+        if ((msgidx & 1) && (*(rxthctx.wrproh) == 0))
+        {
+            BMLOCKED_PRINTF("msgidx = %d\n", msgidx);
+            msgidx++;
+        }
+        pause();
+    } while (msgidx < msgidxmax);
     BMEND_FUNCEX(status);
     return status;
 }
@@ -380,7 +465,7 @@ BMStatus_t CommRxTh_CloseTx()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
     do {
-        BMComm_Close(&txctx.base);
+        BMComm_Close(&txcomm);
     } while (0);
     BMEND_FUNCEX(status);
     return status;
@@ -390,10 +475,19 @@ BMStatus_t CommRxTh_CloseTx()
 BMStatus_t CommRxTh_StopCloseRx()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
+    void* threadReturn = NULL;
     do {
         // reset continuous flag
         rxthctx.base.cont = 0;
+        // BMLOCKED_PRINTF("rxthctx.base.cont = 0 done\n");
 
+        if (pthread_join(rxth, &threadReturn))
+        {
+            status = BMSTATUS_INVALID;
+            BMERR_LOGBREAKEX("Fail in pthread_join(rxth,)");
+        }
+
+        BMComm_Close(&rxcomm);
     } while (0);
     BMEND_FUNCEX(status);
     return status;
@@ -408,7 +502,7 @@ BMStatus_t CommRxTh_StopCloseRx()
 BMStatus_t CommRxThUT()
 {
     BMStatus_t status = BMSTATUS_SUCCESS;
-    BMDispatchers_SInit(0);
+    BMDispatchers_SInit(BMTICK_MIN_PERIOD);
     BMEvQPool_SInit();
     BMBufferPool_SInit();
     BMRingBufferPool_SInit();

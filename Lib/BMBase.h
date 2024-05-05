@@ -28,6 +28,10 @@ extern pthread_spinlock_t baselock;
 #endif
 #define BMBASELOCK_INIT pthread_spin_init(&baselock, PTHREAD_PROCESS_PRIVATE)
 #define BMBASELOCK_DESTROY pthread_spin_destroy(&baselock)
+
+#define BMLOCK_STDOUT pthread_spin_lock(&baselock)
+#define BMUNLOCK_STDOUT pthread_spin_unlock(&baselock)
+
 #define BMLOCKED_PRINTF(...) \
     pthread_spin_lock(&baselock); \
     printf(__VA_ARGS__); \

@@ -1,3 +1,0 @@
-mkdir -p ../Bin/Debug/o
-gcc -I. -c -g -D_DEBUG -o ../Bin/Debug/o/BMComm.o BMComm.c
-ar -r -s ../Bin/Debug/libBMCOMM.a ../Bin/Debug/o/BMBase.o ../Bin/Debug/o/BMCRC.o ../Bin/Debug/o/BMBuffer.o ../Bin/Debug/o/BMRingBuffer.o ../Bin/Debug/o/BMTick.o ../Bin/Debug/o/BMComm.o
